@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCB Cost Tracker</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .tab-pane {
+            padding: 20px 0;
+        }
+
+        .close-tab {
+            cursor: pointer;
+            margin-left: 8px;
+        }
+
+        .action-btn {
+            cursor: pointer;
+        }
+
+        .component-row:hover {
+            background-color: #f8f9fa;
+        }
+
+        #offlineStatus {
+            display: none;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        #offlineStatus.offline {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .export-import-container {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container mt-4">
+        <h1 class="mb-3">PCB Cost Tracker</h1>
+
+        <!-- Offline Status -->
+        <div id="offlineStatus">
+            <i class="fas fa-wifi me-2"></i>
+            <span id="connectionStatus">You are online</span>
+        </div>
+
+        <!-- Export/Import Section -->
+        <div class="export-import-container">
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <div class="btn-group">
+                        <button class="btn btn-outline-primary" id="exportDataBtn">
+                            <i class="fas fa-download me-1"></i> Export Data
+                        </button>
+                        <button class="btn btn-outline-secondary" id="importDataBtn">
+                            <i class="fas fa-upload me-1"></i> Import Data
+                        </button>
+                    </div>
+                    <input type="file" id="importFile" accept=".json" style="display: none;">
+                </div>
+            </div>
+        </div>
+
+        <!-- PCB Tabs -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <ul class="nav nav-tabs flex-grow-1" id="pcbTabs" role="tablist"></ul>
+            <button class="btn btn-primary ms-2" id="addPcbBtn"><i class="fas fa-plus"></i> New PCB</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="pcbTabContent"></div>
+    </div>
+
+    <!-- New PCB Modal -->
+    <div class="modal fade" id="newPcbModal" tabindex="-1" aria-labelledby="newPcbModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="newPcbModalLabel">New PCB</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="newPcbForm">
+                        <div class="mb-3">
+                            <label for="pcbName" class="form-label">PCB Name</label>
+                            <input type="text" class="form-control" id="pcbName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="pcbDescription" class="form-label">Description (Optional)</label>
+                            <textarea class="form-control" id="pcbDescription" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="savePcbBtn">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Component Modal -->
+    <div class="modal fade" id="componentModal" tabindex="-1" aria-labelledby="componentModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="componentModalLabel">Add Component</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="componentForm">
+                        <input type="hidden" id="editComponentId">
+                        <input type="hidden" id="currentPcbId">
+                        <div class="mb-3">
+                            <label for="componentName" class="form-label">Component Name</label>
+                            <input type="text" class="form-control" id="componentName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="componentDescription" class="form-label">Description</label>
+                            <input type="text" class="form-control" id="componentDescription">
+                        </div>
+                        <div class="mb-3">
+                            <label for="componentQuantity" class="form-label">Quantity Needed</label>
+                            <input type="number" class="form-control" id="componentQuantity" required min="1" value="1">
+                        </div>
+                        <div class="mb-3">
+                            <label for="componentPrice" class="form-label">Unit Price ($)</label>
+                            <input type="number" class="form-control" id="componentPrice" required min="0" step="0.01"
+                                value="0">
+                        </div>
+                        <div class="mb-3">
+                            <label for="componentSource" class="form-label">Source</label>
+                            <input type="text" class="form-control" id="componentSource">
+                        </div>
+                        <div class="mb-3">
+                            <label for="componentLink" class="form-label">Source Link</label>
+                            <input type="url" class="form-control" id="componentLink" placeholder="https://">
+                        </div>
+                        <div class="mb-3">
+                            <label for="componentBulkQty" class="form-label">Bulk Purchase Quantity</label>
+                            <input type="number" class="form-control" id="componentBulkQty" min="1" value="1">
+                        </div>
+                        <div class="mb-3">
+                            <label for="componentBulkPrice" class="form-label">Bulk Purchase Total ($)</label>
+                            <input type="number" class="form-control" id="componentBulkPrice" min="0" step="0.01"
+                                value="0">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveComponentBtn">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Service Worker Registration -->
+    <script>
+        // Register Service Worker for offline capabilities
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // App state
+        const state = {
+            pcbs: [],
+            nextPcbId: 1,
+            nextComponentId: 1
+        };
+
+        // DOM elements
+        const pcbTabs = document.getElementById('pcbTabs');
+        const pcbTabContent = document.getElementById('pcbTabContent');
+        const addPcbBtn = document.getElementById('addPcbBtn');
+        const newPcbModal = new bootstrap.Modal(document.getElementById('newPcbModal'));
+        const componentModal = new bootstrap.Modal(document.getElementById('componentModal'));
+        const savePcbBtn = document.getElementById('savePcbBtn');
+        const saveComponentBtn = document.getElementById('saveComponentBtn');
+        const exportDataBtn = document.getElementById('exportDataBtn');
+        const importDataBtn = document.getElementById('importDataBtn');
+        const importFile = document.getElementById('importFile');
+        const offlineStatus = document.getElementById('offlineStatus');
+        const connectionStatus = document.getElementById('connectionStatus');
+
+        // Initialize app
+        function init() {
+            // Load data from local storage
+            loadFromLocalStorage();
+
+            // Event listeners
+            addPcbBtn.addEventListener('click', showNewPcbModal);
+            savePcbBtn.addEventListener('click', savePcb);
+            saveComponentBtn.addEventListener('click', saveComponent);
+            exportDataBtn.addEventListener('click', exportData);
+            importDataBtn.addEventListener('click', () => importFile.click());
+            importFile.addEventListener('change', importData);
+
+            // Online/Offline status
+            setupOfflineDetection();
+
+            // Render PCBs
+            renderPcbs();
+        }
+
+        // Setup offline detection
+        function setupOfflineDetection() {
+            function updateOnlineStatus() {
+                const isOnline = navigator.onLine;
+                offlineStatus.style.display = 'block';
+
+                if (isOnline) {
+                    offlineStatus.classList.remove('offline');
+                    connectionStatus.textContent = 'You are online';
+                } else {
+                    offlineStatus.classList.add('offline');
+                    connectionStatus.textContent = 'You are offline - App works in offline mode';
+                }
+            }
+
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            updateOnlineStatus();
+        }
+
+        // Export data
+        function exportData() {
+            const dataStr = JSON.stringify(state, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `pcb-cost-tracker-export_${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // Import data
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+
+                    // Validate imported data
+                    if (!importedData.pcbs || !Array.isArray(importedData.pcbs)) {
+                        throw new Error('Invalid data format');
+                    }
+
+                    // Confirm import
+                    if (confirm('This will replace your current data. Continue?')) {
+                        state.pcbs = importedData.pcbs;
+                        state.nextPcbId = importedData.nextPcbId || Math.max(...importedData.pcbs.map(p => p.id), 0) + 1;
+                        state.nextComponentId = importedData.nextComponentId ||
+                            Math.max(...importedData.pcbs.flatMap(p => p.components ? p.components.map(c => c.id) : []), 0) + 1;
+
+                        saveToLocalStorage();
+                        renderPcbs();
+                        alert('Data imported successfully!');
+                    }
+                } catch (error) {
+                    alert('Failed to import data. Invalid file format.');
+                    console.error('Import error:', error);
+                }
+            };
+            reader.readAsText(file);
+
+            // Reset the file input
+            event.target.value = '';
+        }
+
+        // Load data from local storage
+        function loadFromLocalStorage() {
+            const savedState = localStorage.getItem('pcbTracker');
+            if (savedState) {
+                try {
+                    const parsedState = JSON.parse(savedState);
+                    state.pcbs = parsedState.pcbs || [];
+                    state.nextPcbId = parsedState.nextPcbId || 1;
+                    state.nextComponentId = parsedState.nextComponentId || 1;
+                } catch (e) {
+                    console.error('Error loading data from local storage:', e);
+                }
+            }
+        }
+
+        // Save data to local storage
+        function saveToLocalStorage() {
+            try {
+                localStorage.setItem('pcbTracker', JSON.stringify(state));
+            } catch (e) {
+                console.error('Error saving to local storage:', e);
+                alert('Failed to save data. Local storage may be full.');
+            }
+        }
+
+        // Render PCBs
+        function renderPcbs() {
+            pcbTabs.innerHTML = '';
+            pcbTabContent.innerHTML = '';
+
+            state.pcbs.forEach((pcb, index) => {
+                // Create tab
+                const tabItem = document.createElement('li');
+                tabItem.className = 'nav-item';
+                tabItem.innerHTML = `
+                    <a class="nav-link ${index === 0 ? 'active' : ''}" 
+                       id="pcb-${pcb.id}-tab" 
+                       data-bs-toggle="tab" 
+                       href="#pcb-${pcb.id}" 
+                       role="tab" 
+                       aria-controls="pcb-${pcb.id}" 
+                       aria-selected="${index === 0 ? 'true' : 'false'}">
+                        ${pcb.name}
+                        <span class="close-tab" data-pcb-id="${pcb.id}"><i class="fas fa-times"></i></span>
+                    </a>
+                `;
+                pcbTabs.appendChild(tabItem);
+
+                // Create tab content
+                const tabContent = document.createElement('div');
+                tabContent.className = `tab-pane fade ${index === 0 ? 'show active' : ''}`;
+                tabContent.id = `pcb-${pcb.id}`;
+                tabContent.setAttribute('role', 'tabpanel');
+                tabContent.setAttribute('aria-labelledby', `pcb-${pcb.id}-tab`);
+
+                tabContent.innerHTML = `
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h2>${pcb.name}</h2>
+                            <p>${pcb.description || ''}</p>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <button class="btn btn-success add-component-btn" data-pcb-id="${pcb.id}">
+                                <i class="fas fa-plus"></i> Add Component
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Total</th>
+                                    <th>Source</th>
+                                    <th>Bulk Price</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="components-${pcb.id}">
+                                ${renderComponents(pcb)}
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-info">
+                                    <td colspan="4" class="text-end"><strong>Total Cost:</strong></td>
+                                    <td><strong>$${calculateTotalCost(pcb).toFixed(2)}</strong></td>
+                                    <td colspan="3"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                `;
+
+                pcbTabContent.appendChild(tabContent);
+            });
+
+            // Add event listeners
+            document.querySelectorAll('.close-tab').forEach(element => {
+                element.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const pcbId = parseInt(this.getAttribute('data-pcb-id'));
+                    deletePcb(pcbId);
+                });
+            });
+
+            document.querySelectorAll('.add-component-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const pcbId = parseInt(this.getAttribute('data-pcb-id'));
+                    showComponentModal(pcbId);
+                });
+            });
+
+            document.querySelectorAll('.edit-component-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const pcbId = parseInt(this.getAttribute('data-pcb-id'));
+                    const componentId = parseInt(this.getAttribute('data-component-id'));
+                    editComponent(pcbId, componentId);
+                });
+            });
+
+            document.querySelectorAll('.delete-component-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const pcbId = parseInt(this.getAttribute('data-pcb-id'));
+                    const componentId = parseInt(this.getAttribute('data-component-id'));
+                    deleteComponent(pcbId, componentId);
+                });
+            });
+        }
+
+        // Render components for a PCB
+        function renderComponents(pcb) {
+            if (!pcb.components || pcb.components.length === 0) {
+                return `<tr><td colspan="8" class="text-center">No components added yet</td></tr>`;
+            }
+
+            return pcb.components.map(comp => {
+                const totalCost = comp.quantity * comp.price;
+                const bulkUnitPrice = comp.bulkQuantity > 0 ? comp.bulkPrice / comp.bulkQuantity : 0;
+
+                return `
+                    <tr class="component-row">
+                        <td>${comp.name}</td>
+                        <td>${comp.description || '-'}</td>
+                        <td>${comp.quantity}</td>
+                        <td>$${comp.price.toFixed(2)}</td>
+                        <td>$${totalCost.toFixed(2)}</td>
+                        <td>
+                            ${comp.sourceLink ?
+                        `<a href="${comp.sourceLink}" target="_blank">${comp.source || 'Link'}</a>` :
+                        (comp.source || '-')
+                    }
+                        </td>
+                        <td>
+                            ${comp.bulkQuantity > 0 ?
+                        `$${comp.bulkPrice.toFixed(2)} for ${comp.bulkQuantity} ($${bulkUnitPrice.toFixed(2)} each)` :
+                        '-'
+                    }
+                        </td>
+                        <td>
+                            <span class="action-btn edit-component-btn" data-pcb-id="${pcb.id}" data-component-id="${comp.id}">
+                                <i class="fas fa-edit text-primary"></i>
+                            </span>
+                            <span class="action-btn delete-component-btn ms-2" data-pcb-id="${pcb.id}" data-component-id="${comp.id}">
+                                <i class="fas fa-trash text-danger"></i>
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Calculate total cost for a PCB
+        function calculateTotalCost(pcb) {
+            if (!pcb.components || pcb.components.length === 0) {
+                return 0;
+            }
+
+            return pcb.components.reduce((total, comp) => {
+                return total + (comp.quantity * comp.price);
+            }, 0);
+        }
+
+        // Show new PCB modal
+        function showNewPcbModal() {
+            document.getElementById('pcbName').value = '';
+            document.getElementById('pcbDescription').value = '';
+            document.getElementById('newPcbModalLabel').textContent = 'New PCB';
+            newPcbModal.show();
+        }
+
+        // Save PCB
+        function savePcb() {
+            const name = document.getElementById('pcbName').value.trim();
+            const description = document.getElementById('pcbDescription').value.trim();
+
+            if (!name) {
+                alert('PCB name is required');
+                return;
+            }
+
+            const newPcb = {
+                id: state.nextPcbId++,
+                name,
+                description,
+                components: []
+            };
+
+            state.pcbs.push(newPcb);
+            saveToLocalStorage();
+            renderPcbs();
+            newPcbModal.hide();
+
+            // Activate the new tab
+            const newTab = document.querySelector(`#pcb-${newPcb.id}-tab`);
+            if (newTab) {
+                new bootstrap.Tab(newTab).show();
+            }
+        }
+
+        // Delete PCB
+        function deletePcb(pcbId) {
+            if (!confirm('Are you sure you want to delete this PCB?')) {
+                return;
+            }
+
+            const index = state.pcbs.findIndex(pcb => pcb.id === pcbId);
+            if (index !== -1) {
+                state.pcbs.splice(index, 1);
+                saveToLocalStorage();
+                renderPcbs();
+
+                // Activate first tab if available
+                if (state.pcbs.length > 0) {
+                    const firstTab = document.querySelector(`#pcb-${state.pcbs[0].id}-tab`);
+                    if (firstTab) {
+                        new bootstrap.Tab(firstTab).show();
+                    }
+                }
+            }
+        }
+
+        // Show component modal
+        function showComponentModal(pcbId, componentId = null) {
+            document.getElementById('componentForm').reset();
+            document.getElementById('currentPcbId').value = pcbId;
+
+            if (componentId === null) {
+                // Add new component
+                document.getElementById('componentModalLabel').textContent = 'Add Component';
+                document.getElementById('editComponentId').value = '';
+            } else {
+                // Edit existing component
+                document.getElementById('componentModalLabel').textContent = 'Edit Component';
+                document.getElementById('editComponentId').value = componentId;
+
+                const pcb = state.pcbs.find(p => p.id === pcbId);
+                if (pcb) {
+                    const component = pcb.components.find(c => c.id === componentId);
+                    if (component) {
+                        document.getElementById('componentName').value = component.name;
+                        document.getElementById('componentDescription').value = component.description || '';
+                        document.getElementById('componentQuantity').value = component.quantity;
+                        document.getElementById('componentPrice').value = component.price;
+                        document.getElementById('componentSource').value = component.source || '';
+                        document.getElementById('componentLink').value = component.sourceLink || '';
+                        document.getElementById('componentBulkQty').value = component.bulkQuantity || '';
+                        document.getElementById('componentBulkPrice').value = component.bulkPrice || '';
+                    }
+                }
+            }
+
+            componentModal.show();
+        }
+
+        // Save component
+        function saveComponent() {
+            const pcbId = parseInt(document.getElementById('currentPcbId').value);
+            const componentIdStr = document.getElementById('editComponentId').value;
+            const isEdit = componentIdStr !== '';
+            const componentId = isEdit ? parseInt(componentIdStr) : state.nextComponentId++;
+
+            const name = document.getElementById('componentName').value.trim();
+            const description = document.getElementById('componentDescription').value.trim();
+            const quantity = parseInt(document.getElementById('componentQuantity').value);
+            const price = parseFloat(document.getElementById('componentPrice').value);
+            const source = document.getElementById('componentSource').value.trim();
+            const sourceLink = document.getElementById('componentLink').value.trim();
+            const bulkQuantity = parseInt(document.getElementById('componentBulkQty').value) || 0;
+            const bulkPrice = parseFloat(document.getElementById('componentBulkPrice').value) || 0;
+
+            if (!name || isNaN(quantity) || quantity <= 0 || isNaN(price) || price < 0) {
+                alert('Please fill in all required fields correctly');
+                return;
+            }
+
+            const pcbIndex = state.pcbs.findIndex(p => p.id === pcbId);
+            if (pcbIndex !== -1) {
+                const component = {
+                    id: componentId,
+                    name,
+                    description,
+                    quantity,
+                    price,
+                    source,
+                    sourceLink,
+                    bulkQuantity,
+                    bulkPrice
+                };
+
+                if (isEdit) {
+                    // Edit existing component
+                    const componentIndex = state.pcbs[pcbIndex].components.findIndex(c => c.id === componentId);
+                    if (componentIndex !== -1) {
+                        state.pcbs[pcbIndex].components[componentIndex] = component;
+                    }
+                } else {
+                    // Add new component
+                    if (!state.pcbs[pcbIndex].components) {
+                        state.pcbs[pcbIndex].components = [];
+                    }
+                    state.pcbs[pcbIndex].components.push(component);
+                }
+
+                saveToLocalStorage();
+                renderPcbs();
+                componentModal.hide();
+            }
+        }
+
+        // Edit component
+        function editComponent(pcbId, componentId) {
+            showComponentModal(pcbId, componentId);
+        }
+
+        // Delete component
+        function deleteComponent(pcbId, componentId) {
+            if (!confirm('Are you sure you want to delete this component?')) {
+                return;
+            }
+
+            const pcbIndex = state.pcbs.findIndex(p => p.id === pcbId);
+            if (pcbIndex !== -1) {
+                const componentIndex = state.pcbs[pcbIndex].components.findIndex(c => c.id === componentId);
+                if (componentIndex !== -1) {
+                    state.pcbs[pcbIndex].components.splice(componentIndex, 1);
+                    saveToLocalStorage();
+                    renderPcbs();
+                }
+            }
+        }
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+
+</html>
