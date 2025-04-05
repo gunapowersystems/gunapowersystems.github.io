@@ -271,7 +271,7 @@
                 const firebaseData = snapshot.val();
 
                 if (firebaseData) {
-                    // Use Firebase data
+                    // Use Firebase data directly without merging
                     state.pcbs = firebaseData.pcbs || [];
                     state.nextPcbId = firebaseData.nextPcbId || 1;
                     state.nextComponentId = firebaseData.nextComponentId || 1;
@@ -886,27 +886,36 @@
                 syncStatusText.textContent = 'Syncing with cloud...';
                 syncDataBtn.disabled = true;
 
-                // First, get data from Firebase
+                // Get current Firebase data
                 const snapshot = await window.firebaseGet(window.firebaseRef(window.firebaseDatabase, 'pcbTracker'));
                 const firebaseData = snapshot.val();
 
                 if (firebaseData) {
-                    // Merge Firebase data with local data
-                    state.pcbs = [...new Set([...state.pcbs, ...(firebaseData.pcbs || [])])];
-                    state.nextPcbId = Math.max(state.nextPcbId, firebaseData.nextPcbId || 1);
-                    state.nextComponentId = Math.max(state.nextComponentId, firebaseData.nextComponentId || 1);
-                    state.inventory = { ...state.inventory, ...(firebaseData.inventory || {}) };
+                    // Use the data with the most recent changes
+                    // Compare timestamps or use local data if it has more items
+                    if (state.pcbs.length > (firebaseData.pcbs || []).length) {
+                        // Local data has more items, use it
+                        await window.firebaseSet(window.firebaseRef(window.firebaseDatabase, 'pcbTracker'), state);
+                        syncStatusText.textContent = 'Local data synced to cloud';
+                    } else {
+                        // Use Firebase data
+                        state.pcbs = firebaseData.pcbs || [];
+                        state.nextPcbId = firebaseData.nextPcbId || 1;
+                        state.nextComponentId = firebaseData.nextComponentId || 1;
+                        state.inventory = firebaseData.inventory || {};
+                        syncStatusText.textContent = 'Cloud data loaded';
+                    }
+                } else {
+                    // No Firebase data, upload local data
+                    await window.firebaseSet(window.firebaseRef(window.firebaseDatabase, 'pcbTracker'), state);
+                    syncStatusText.textContent = 'Local data synced to cloud';
                 }
 
-                // Then, save merged data back to Firebase
-                await window.firebaseSet(window.firebaseRef(window.firebaseDatabase, 'pcbTracker'), state);
-                
                 // Save to local storage
                 localStorage.setItem('pcbTracker', JSON.stringify(state));
 
                 // Update UI
                 renderPcbs();
-                syncStatusText.textContent = 'Data synced successfully';
                 syncStatus.classList.remove('alert-danger');
                 syncStatus.classList.add('alert-success');
             } catch (error) {
