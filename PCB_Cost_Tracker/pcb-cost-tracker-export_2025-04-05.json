@@ -1,0 +1,50 @@
+{
+  "pcbs": [
+    {
+      "id": 1,
+      "name": "test pcb",
+      "description": "this is a test pcb",
+      "components": [
+        {
+          "id": 1,
+          "name": "test component 1",
+          "description": "test description",
+          "quantity": 1,
+          "price": 2,
+          "source": "robu",
+          "sourceLink": "",
+          "bulkQuantity": 10,
+          "bulkPrice": 20,
+          "stock": 0,
+          "minStock": 5
+        },
+        {
+          "id": 2,
+          "name": "test component 2",
+          "description": "",
+          "quantity": 2,
+          "price": 4,
+          "source": "ktron",
+          "sourceLink": "",
+          "bulkQuantity": 100,
+          "bulkPrice": 400,
+          "stock": 100,
+          "minStock": 10
+        }
+      ]
+    }
+  ],
+  "nextPcbId": 2,
+  "nextComponentId": 3,
+  "inventory": {
+    "test component 2_ktron": {
+      "name": "test component 2",
+      "source": "ktron",
+      "stock": 100,
+      "minStock": 10,
+      "price": 4,
+      "bulkQuantity": 100,
+      "bulkPrice": 400
+    }
+  }
+}

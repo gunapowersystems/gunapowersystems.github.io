@@ -156,6 +156,14 @@
                             <input type="number" class="form-control" id="componentBulkPrice" min="0" step="0.01"
                                 value="0">
                         </div>
+                        <div class="mb-3">
+                            <label for="componentStock" class="form-label">Current Stock</label>
+                            <input type="number" class="form-control" id="componentStock" min="0" value="0">
+                        </div>
+                        <div class="mb-3">
+                            <label for="componentMinStock" class="form-label">Minimum Stock Level</label>
+                            <input type="number" class="form-control" id="componentMinStock" min="0" value="0">
+                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -188,7 +196,8 @@
         const state = {
             pcbs: [],
             nextPcbId: 1,
-            nextComponentId: 1
+            nextComponentId: 1,
+            inventory: {} // New inventory object to track component stock
         };
 
         // DOM elements
@@ -376,6 +385,9 @@
                                     <th>Total</th>
                                     <th>Source</th>
                                     <th>Bulk Price</th>
+                                    <th>Current Stock</th>
+                                    <th>Min Stock</th>
+                                    <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -458,6 +470,14 @@
                         `$${comp.bulkPrice.toFixed(2)} for ${comp.bulkQuantity} ($${bulkUnitPrice.toFixed(2)} each)` :
                         '-'
                     }
+                        </td>
+                        <td>${comp.stock || 0}</td>
+                        <td>${comp.minStock || 0}</td>
+                        <td>
+                            ${comp.stock <= comp.minStock ? 
+                                '<span class="badge bg-danger">Low Stock</span>' : 
+                                '<span class="badge bg-success">In Stock</span>'
+                            }
                         </td>
                         <td>
                             <span class="action-btn edit-component-btn" data-pcb-id="${pcb.id}" data-component-id="${comp.id}">
@@ -568,6 +588,8 @@
                         document.getElementById('componentLink').value = component.sourceLink || '';
                         document.getElementById('componentBulkQty').value = component.bulkQuantity || '';
                         document.getElementById('componentBulkPrice').value = component.bulkPrice || '';
+                        document.getElementById('componentStock').value = component.stock || '';
+                        document.getElementById('componentMinStock').value = component.minStock || '';
                     }
                 }
             }
@@ -590,6 +612,11 @@
             const sourceLink = document.getElementById('componentLink').value.trim();
             const bulkQuantity = parseInt(document.getElementById('componentBulkQty').value) || 0;
             const bulkPrice = parseFloat(document.getElementById('componentBulkPrice').value) || 0;
+            const minStock = parseInt(document.getElementById('componentMinStock').value) || 0;
+            // For new components, set stock to bulk quantity if provided, otherwise 0
+            const stock = isEdit ? 
+                (parseInt(document.getElementById('componentStock').value) || 0) : 
+                (bulkQuantity || 0);
 
             if (!name || isNaN(quantity) || quantity <= 0 || isNaN(price) || price < 0) {
                 alert('Please fill in all required fields correctly');
@@ -607,7 +634,9 @@
                     source,
                     sourceLink,
                     bulkQuantity,
-                    bulkPrice
+                    bulkPrice,
+                    stock,
+                    minStock
                 };
 
                 if (isEdit) {
@@ -628,6 +657,19 @@
                 renderPcbs();
                 componentModal.hide();
             }
+
+            // Update inventory
+            updateInventory({
+                name,
+                source,
+                stock,
+                minStock,
+                price,
+                bulkQuantity,
+                bulkPrice
+            });
+
+            checkLowStock();
         }
 
         // Edit component
@@ -654,6 +696,46 @@
 
         // Initialize app
         document.addEventListener('DOMContentLoaded', init);
+
+        // Inventory Management Functions
+        function updateInventory(component) {
+            // Create a unique key for the component based on name and source
+            const componentKey = `${component.name}_${component.source}`;
+            
+            if (!state.inventory[componentKey]) {
+                state.inventory[componentKey] = {
+                    name: component.name,
+                    source: component.source,
+                    stock: component.stock || 0,
+                    minStock: component.minStock || 0,
+                    price: component.price,
+                    bulkQuantity: component.bulkQuantity,
+                    bulkPrice: component.bulkPrice
+                };
+            } else {
+                // Update existing inventory item
+                state.inventory[componentKey].stock = component.stock;
+                state.inventory[componentKey].minStock = component.minStock;
+                state.inventory[componentKey].price = component.price;
+                state.inventory[componentKey].bulkQuantity = component.bulkQuantity;
+                state.inventory[componentKey].bulkPrice = component.bulkPrice;
+            }
+            
+            saveToLocalStorage();
+        }
+
+        function checkLowStock() {
+            const lowStockItems = Object.values(state.inventory).filter(item => 
+                item.stock <= item.minStock
+            );
+            
+            if (lowStockItems.length > 0) {
+                const message = `Low stock alert for:\n${lowStockItems.map(item => 
+                    `${item.name} (${item.stock} remaining, min: ${item.minStock})`
+                ).join('\n')}`;
+                alert(message);
+            }
+        }
     </script>
 </body>
 
