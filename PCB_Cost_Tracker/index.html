@@ -73,7 +73,7 @@
                             <i class="fas fa-upload me-1"></i> Import Data
                         </button>
                         <button class="btn btn-outline-success" id="syncDataBtn">
-                            <i class="fas fa-sync-alt me-1"></i> Sync with Cloud
+                            <i class="fas fa-cloud-download-alt me-1"></i> Sync from Cloud
                         </button>
                     </div>
                     <input type="file" id="importFile" accept=".json" style="display: none;">
@@ -876,14 +876,14 @@
         // Sync with Firebase
         async function syncWithFirebase() {
             if (!navigator.onLine) {
-                alert('You are offline. Please connect to the internet to sync with cloud.');
+                alert('You are offline. Please connect to the internet to sync from cloud.');
                 return;
             }
 
             try {
                 // Show sync status
                 syncStatus.style.display = 'block';
-                syncStatusText.textContent = 'Syncing with cloud...';
+                syncStatusText.textContent = 'Syncing from cloud...';
                 syncDataBtn.disabled = true;
 
                 // Get current Firebase data
@@ -891,36 +891,29 @@
                 const firebaseData = snapshot.val();
 
                 if (firebaseData) {
-                    // Use the data with the most recent changes
-                    // Compare timestamps or use local data if it has more items
-                    if (state.pcbs.length > (firebaseData.pcbs || []).length) {
-                        // Local data has more items, use it
-                        await window.firebaseSet(window.firebaseRef(window.firebaseDatabase, 'pcbTracker'), state);
-                        syncStatusText.textContent = 'Local data synced to cloud';
-                    } else {
-                        // Use Firebase data
-                        state.pcbs = firebaseData.pcbs || [];
-                        state.nextPcbId = firebaseData.nextPcbId || 1;
-                        state.nextComponentId = firebaseData.nextComponentId || 1;
-                        state.inventory = firebaseData.inventory || {};
-                        syncStatusText.textContent = 'Cloud data loaded';
-                    }
+                    // Always use Firebase data
+                    state.pcbs = firebaseData.pcbs || [];
+                    state.nextPcbId = firebaseData.nextPcbId || 1;
+                    state.nextComponentId = firebaseData.nextComponentId || 1;
+                    state.inventory = firebaseData.inventory || {};
+                    
+                    // Save to local storage
+                    localStorage.setItem('pcbTracker', JSON.stringify(state));
+                    
+                    syncStatusText.textContent = 'Data synced from cloud';
                 } else {
-                    // No Firebase data, upload local data
-                    await window.firebaseSet(window.firebaseRef(window.firebaseDatabase, 'pcbTracker'), state);
-                    syncStatusText.textContent = 'Local data synced to cloud';
+                    syncStatusText.textContent = 'No data found in cloud';
+                    syncStatus.classList.remove('alert-success');
+                    syncStatus.classList.add('alert-warning');
                 }
-
-                // Save to local storage
-                localStorage.setItem('pcbTracker', JSON.stringify(state));
 
                 // Update UI
                 renderPcbs();
                 syncStatus.classList.remove('alert-danger');
                 syncStatus.classList.add('alert-success');
             } catch (error) {
-                console.error('Error syncing with Firebase:', error);
-                syncStatusText.textContent = 'Error syncing with cloud';
+                console.error('Error syncing from Firebase:', error);
+                syncStatusText.textContent = 'Error syncing from cloud';
                 syncStatus.classList.remove('alert-success');
                 syncStatus.classList.add('alert-danger');
             } finally {
