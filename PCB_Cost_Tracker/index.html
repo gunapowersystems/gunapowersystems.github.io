@@ -257,10 +257,103 @@
         const syncStatus = document.getElementById('syncStatus');
         const syncStatusText = document.getElementById('syncStatusText');
 
+        // Load data from Firebase
+        async function loadData() {
+            try {
+                // Show loading status
+                syncStatus.style.display = 'block';
+                syncStatusText.textContent = 'Loading data from cloud...';
+                syncStatus.classList.remove('alert-danger');
+                syncStatus.classList.add('alert-info');
+
+                // Try to load from Firebase first
+                const snapshot = await window.firebaseGet(window.firebaseRef(window.firebaseDatabase, 'pcbTracker'));
+                const firebaseData = snapshot.val();
+
+                if (firebaseData) {
+                    // Use Firebase data
+                    state.pcbs = firebaseData.pcbs || [];
+                    state.nextPcbId = firebaseData.nextPcbId || 1;
+                    state.nextComponentId = firebaseData.nextComponentId || 1;
+                    state.inventory = firebaseData.inventory || {};
+                    
+                    // Save to local storage as backup
+                    localStorage.setItem('pcbTracker', JSON.stringify(state));
+                    
+                    syncStatusText.textContent = 'Data loaded from cloud';
+                    syncStatus.classList.remove('alert-info');
+                    syncStatus.classList.add('alert-success');
+                } else {
+                    // If no Firebase data, try local storage
+                    const savedState = localStorage.getItem('pcbTracker');
+                    if (savedState) {
+                        try {
+                            const parsedState = JSON.parse(savedState);
+                            state.pcbs = parsedState.pcbs || [];
+                            state.nextPcbId = parsedState.nextPcbId || 1;
+                            state.nextComponentId = parsedState.nextComponentId || 1;
+                            state.inventory = parsedState.inventory || {};
+                            
+                            // Save to Firebase
+                            await window.firebaseSet(window.firebaseRef(window.firebaseDatabase, 'pcbTracker'), state);
+                            
+                            syncStatusText.textContent = 'Local data synced to cloud';
+                            syncStatus.classList.remove('alert-info');
+                            syncStatus.classList.add('alert-success');
+                        } catch (e) {
+                            console.error('Error loading from local storage:', e);
+                            throw new Error('Failed to load data from local storage');
+                        }
+                    } else {
+                        // No data anywhere, initialize empty state
+                        state.pcbs = [];
+                        state.nextPcbId = 1;
+                        state.nextComponentId = 1;
+                        state.inventory = {};
+                        
+                        syncStatusText.textContent = 'No data found, starting fresh';
+                        syncStatus.classList.remove('alert-info');
+                        syncStatus.classList.add('alert-warning');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+                syncStatusText.textContent = 'Error loading data from cloud';
+                syncStatus.classList.remove('alert-info');
+                syncStatus.classList.add('alert-danger');
+                
+                // Try to load from local storage as last resort
+                const savedState = localStorage.getItem('pcbTracker');
+                if (savedState) {
+                    try {
+                        const parsedState = JSON.parse(savedState);
+                        state.pcbs = parsedState.pcbs || [];
+                        state.nextPcbId = parsedState.nextPcbId || 1;
+                        state.nextComponentId = parsedState.nextComponentId || 1;
+                        state.inventory = parsedState.inventory || {};
+                        syncStatusText.textContent = 'Loaded backup data from local storage';
+                    } catch (e) {
+                        console.error('Error loading from local storage:', e);
+                        state.pcbs = [];
+                        state.nextPcbId = 1;
+                        state.nextComponentId = 1;
+                        state.inventory = {};
+                        syncStatusText.textContent = 'Failed to load data, starting fresh';
+                    }
+                }
+            } finally {
+                // Render PCBs and hide status after a delay
+                renderPcbs();
+                setTimeout(() => {
+                    syncStatus.style.display = 'none';
+                }, 2000);
+            }
+        }
+
         // Initialize app
-        function init() {
-            // Load data from local storage
-            loadFromLocalStorage();
+        async function init() {
+            // Load data from Firebase
+            await loadData();
 
             // Event listeners
             addPcbBtn.addEventListener('click', showNewPcbModal);
@@ -273,9 +366,6 @@
 
             // Online/Offline status
             setupOfflineDetection();
-
-            // Render PCBs
-            renderPcbs();
         }
 
         // Setup offline detection
@@ -315,13 +405,13 @@
             URL.revokeObjectURL(url);
         }
 
-        // Import data
+        // Modified importData to save to Firebase after import
         function importData(event) {
             const file = event.target.files[0];
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = function (e) {
+            reader.onload = async function (e) {
                 try {
                     const importedData = JSON.parse(e.target.result);
 
@@ -336,10 +426,12 @@
                         state.nextPcbId = importedData.nextPcbId || Math.max(...importedData.pcbs.map(p => p.id), 0) + 1;
                         state.nextComponentId = importedData.nextComponentId ||
                             Math.max(...importedData.pcbs.flatMap(p => p.components ? p.components.map(c => c.id) : []), 0) + 1;
+                        state.inventory = importedData.inventory || {};
 
-                        saveToLocalStorage();
+                        // Save to Firebase and local storage
+                        await saveToLocalStorage();
                         renderPcbs();
-                        alert('Data imported successfully!');
+                        alert('Data imported and synced successfully!');
                     }
                 } catch (error) {
                     alert('Failed to import data. Invalid file format.');
@@ -352,64 +444,26 @@
             event.target.value = '';
         }
 
-        // Load data from local storage
-        async function loadFromLocalStorage() {
-            const savedState = localStorage.getItem('pcbTracker');
-            if (savedState) {
-                try {
-                    const parsedState = JSON.parse(savedState);
-                    state.pcbs = parsedState.pcbs || [];
-                    state.nextPcbId = parsedState.nextPcbId || 1;
-                    state.nextComponentId = parsedState.nextComponentId || 1;
-                    state.inventory = parsedState.inventory || {};
-                } catch (e) {
-                    console.error('Error loading data from local storage:', e);
-                }
-            }
-
-            // Sync with Firebase
-            try {
-                const snapshot = await window.firebaseGet(window.firebaseRef(window.firebaseDatabase, 'pcbTracker'));
-                const firebaseData = snapshot.val();
-                
-                if (firebaseData) {
-                    // Merge Firebase data with local data
-                    state.pcbs = [...new Set([...state.pcbs, ...(firebaseData.pcbs || [])])];
-                    state.nextPcbId = Math.max(state.nextPcbId, firebaseData.nextPcbId || 1);
-                    state.nextComponentId = Math.max(state.nextComponentId, firebaseData.nextComponentId || 1);
-                    state.inventory = { ...state.inventory, ...(firebaseData.inventory || {}) };
-                    
-                    // Save merged data back to local storage
-                    saveToLocalStorage();
-                    renderPcbs();
-                }
-            } catch (error) {
-                console.error('Error loading from Firebase:', error);
-            }
-        }
-
-        // Save data to local storage
+        // Modified saveToLocalStorage to prioritize Firebase
         async function saveToLocalStorage() {
             try {
-                // Save to local storage
+                // Save to Firebase first
+                await window.firebaseSet(window.firebaseRef(window.firebaseDatabase, 'pcbTracker'), state);
+                
+                // Then save to local storage as backup
                 localStorage.setItem('pcbTracker', JSON.stringify(state));
                 
-                // Show sync status
-                syncStatus.style.display = 'block';
-                syncStatusText.textContent = 'Syncing with cloud...';
-                
-                // Sync with Firebase
-                await window.firebaseSet(window.firebaseRef(window.firebaseDatabase, 'pcbTracker'), state);
-                console.log('Data synced with Firebase');
-                syncStatusText.textContent = 'Data synced successfully';
-                setTimeout(() => {
-                    syncStatus.style.display = 'none';
-                }, 2000);
+                console.log('Data saved to Firebase and local storage');
             } catch (error) {
-                console.error('Error syncing with Firebase:', error);
-                syncStatusText.textContent = 'Error syncing with cloud';
-                syncStatus.classList.remove('alert-info');
-                syncStatus.classList.add('alert-danger');
+                console.error('Error saving data:', error);
+                // If Firebase fails, still try to save locally
+                try {
+                    localStorage.setItem('pcbTracker', JSON.stringify(state));
+                    console.log('Data saved to local storage only');
+                } catch (e) {
+                    console.error('Error saving to local storage:', e);
+                    alert('Failed to save data. Please try again.');
+                }
             }
         }
 
