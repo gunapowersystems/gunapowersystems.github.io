@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,7 +16,6 @@
             white-space: pre-wrap;
             word-wrap: break-word;
         }
-
         .favorite-command {
             cursor: pointer;
             background-color: #f8f9fa;
@@ -28,17 +26,15 @@
             display: flex;
             justify-content: space-between;
         }
-
         .favorite-command:hover {
             background-color: #e9ecef;
         }
     </style>
 </head>
-
 <body>
     <div class="container my-4">
         <h1 class="text-center mb-4">AT Command Interface for SIMCOM A7670C</h1>
-
+        
         <!-- Connection Panel -->
         <div class="card mb-4">
             <div class="card-header">
@@ -53,8 +49,7 @@
                                 <option value="" selected disabled>Select COM Port</option>
                                 <option value="manual">Enter Manually</option>
                             </select>
-                            <input type="text" class="form-control" id="manualPortInput" placeholder="COM1"
-                                style="display: none;">
+                            <input type="text" class="form-control" id="manualPortInput" placeholder="COM1" style="display: none;">
                         </div>
                     </div>
                     <div class="col-md-4 mb-3">
@@ -84,7 +79,7 @@
                 </div>
             </div>
         </div>
-
+        
         <!-- Main Interface -->
         <div class="row">
             <!-- Command Interface -->
@@ -95,11 +90,11 @@
                     </div>
                     <div class="card-body">
                         <div class="terminal mb-3" id="terminal">Welcome to AT Command Interface
-                            Ready to connect to SIMCOM A7670C...
-                        </div>
+Ready to connect to SIMCOM A7670C...
+Loading favorite commands from Firebase...
+</div>
                         <div class="input-group mb-3">
-                            <input type="text" class="form-control" id="commandInput" placeholder="Enter AT command..."
-                                disabled>
+                            <input type="text" class="form-control" id="commandInput" placeholder="Enter AT command..." disabled>
                             <button class="btn btn-outline-primary" type="button" id="sendBtn" disabled>Send</button>
                         </div>
                         <div class="d-flex justify-content-between">
@@ -109,23 +104,24 @@
                     </div>
                 </div>
             </div>
-
+            
             <!-- Favorites Panel -->
             <div class="col-md-4">
                 <div class="card mb-4">
-                    <div class="card-header">
-                        <h5>Favorite Commands</h5>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Favorite Commands</h5>
+                        <button class="btn btn-sm btn-outline-secondary" id="syncBtn">Sync</button>
                     </div>
                     <div class="card-body">
                         <div id="favoritesContainer">
                             <!-- Favorite commands will be displayed here -->
                             <div class="alert alert-light text-center">
-                                No favorite commands saved yet
+                                Loading favorite commands...
                             </div>
                         </div>
                     </div>
                 </div>
-
+                
                 <!-- Common AT Commands -->
                 <div class="card mb-4">
                     <div class="card-header">
@@ -133,22 +129,54 @@
                     </div>
                     <div class="card-body">
                         <div class="list-group">
-                            <button type="button"
-                                class="list-group-item list-group-item-action common-command">AT</button>
-                            <button type="button"
-                                class="list-group-item list-group-item-action common-command">AT+CSQ</button>
-                            <button type="button"
-                                class="list-group-item list-group-item-action common-command">AT+CPIN?</button>
-                            <button type="button"
-                                class="list-group-item list-group-item-action common-command">AT+CREG?</button>
-                            <button type="button"
-                                class="list-group-item list-group-item-action common-command">AT+COPS?</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CSQ</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CPIN?</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CREG?</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+COPS?</button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Firebase Scripts -->
+    <script type="module">
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+      import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+      
+      // Your web app's Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyDDGnZPZIQHls54CdfFTb1gKBF63cb6iY0",
+        authDomain: "at-terminal-283ec.firebaseapp.com",
+        projectId: "at-terminal-283ec",
+        storageBucket: "at-terminal-283ec.firebasestorage.app",
+        messagingSenderId: "968295414597",
+        appId: "1:968295414597:web:7da65de48e3de814c35c2c"
+      };
+      
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      
+      // Store Firebase db in window for access in main script
+      window.db = db;
+      window.firebaseCollections = {
+        favoritesCollection: collection(db, "favoriteCommands")
+      };
+      window.firebaseFunctions = {
+        getDocs,
+        addDoc,
+        deleteDoc,
+        doc
+      };
+      
+      // Signal that Firebase is ready
+      const event = new Event('firebaseReady');
+      window.dispatchEvent(event);
+    </script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -158,7 +186,8 @@
         let writer;
         let readableStreamClosed;
         let writableStreamClosed;
-        let favoriteCommands = JSON.parse(localStorage.getItem('favoriteCommands')) || [];
+        let favoriteCommands = [];
+        let commandDocs = []; // To store document references
 
         // DOM Elements
         const connectBtn = document.getElementById('connectBtn');
@@ -171,13 +200,14 @@
         const sendBtn = document.getElementById('sendBtn');
         const clearBtn = document.getElementById('clearBtn');
         const saveCommandBtn = document.getElementById('saveCommandBtn');
+        const syncBtn = document.getElementById('syncBtn');
         const connectionStatus = document.getElementById('connectionStatus');
         const favoritesContainer = document.getElementById('favoritesContainer');
         const commonCommands = document.querySelectorAll('.common-command');
 
         // Check if Web Serial API is supported
         if (!('serial' in navigator)) {
-            appendToTerminal('Web Serial API is not supported in this browser. Please use Chrome or Edge.');
+            appendToTerminal('Web Serial API is not supported in this browser. Please use Chrome or Edge on desktop.');
             connectBtn.disabled = true;
         }
 
@@ -190,16 +220,17 @@
         sendBtn.addEventListener('click', sendCommand);
         clearBtn.addEventListener('click', clearTerminal);
         saveCommandBtn.addEventListener('click', saveAsFavorite);
-
+        syncBtn.addEventListener('click', fetchFavoriteCommands);
+        
         // Show/hide manual port input based on selection
-        portSelect.addEventListener('change', function () {
+        portSelect.addEventListener('change', function() {
             if (this.value === 'manual') {
                 manualPortInput.style.display = 'block';
             } else {
                 manualPortInput.style.display = 'none';
             }
         });
-
+        
         // Common commands click event
         commonCommands.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -207,29 +238,112 @@
             });
         });
 
-        // Initialize
-        displayFavoriteCommands();
+        // Firebase initialization listener
+        window.addEventListener('firebaseReady', () => {
+            appendToTerminal('Firebase initialized successfully.');
+            fetchFavoriteCommands();
+        });
+
+        // Firebase functions
+        async function fetchFavoriteCommands() {
+            try {
+                if (!window.db || !window.firebaseCollections || !window.firebaseFunctions) {
+                    appendToTerminal('Firebase not yet initialized. Please wait...');
+                    return;
+                }
+                
+                favoritesContainer.innerHTML = `
+                    <div class="alert alert-light text-center">
+                        Loading favorite commands...
+                    </div>
+                `;
+                
+                const querySnapshot = await window.firebaseFunctions.getDocs(window.firebaseCollections.favoritesCollection);
+                favoriteCommands = [];
+                commandDocs = [];
+                
+                querySnapshot.forEach((doc) => {
+                    favoriteCommands.push(doc.data().command);
+                    commandDocs.push({
+                        id: doc.id,
+                        command: doc.data().command
+                    });
+                });
+                
+                displayFavoriteCommands();
+                appendToTerminal('Favorite commands loaded from Firebase.');
+            } catch (error) {
+                console.error("Error fetching favorite commands:", error);
+                appendToTerminal('Error fetching favorite commands: ' + error.message);
+            }
+        }
+
+        async function saveCommandToFirebase(command) {
+            try {
+                if (!window.db || !window.firebaseCollections || !window.firebaseFunctions) {
+                    appendToTerminal('Firebase not yet initialized. Please wait...');
+                    return false;
+                }
+                
+                // Check if command already exists
+                if (favoriteCommands.includes(command)) {
+                    appendToTerminal('Command already exists in favorites.');
+                    return false;
+                }
+                
+                const docRef = await window.firebaseFunctions.addDoc(window.firebaseCollections.favoritesCollection, {
+                    command: command,
+                    timestamp: new Date().toISOString()
+                });
+                
+                appendToTerminal('Command saved to Firebase: ' + command);
+                return true;
+            } catch (error) {
+                console.error("Error saving command:", error);
+                appendToTerminal('Error saving command: ' + error.message);
+                return false;
+            }
+        }
+
+        async function deleteCommandFromFirebase(docId) {
+            try {
+                if (!window.db || !window.firebaseCollections || !window.firebaseFunctions) {
+                    appendToTerminal('Firebase not yet initialized. Please wait...');
+                    return false;
+                }
+                
+                const docRef = window.firebaseFunctions.doc(window.db, "favoriteCommands", docId);
+                await window.firebaseFunctions.deleteDoc(docRef);
+                
+                appendToTerminal('Command deleted from favorites.');
+                return true;
+            } catch (error) {
+                console.error("Error deleting command:", error);
+                appendToTerminal('Error deleting command: ' + error.message);
+                return false;
+            }
+        }
 
         // Function to get available ports
         async function listAvailablePorts() {
             if ('serial' in navigator) {
                 try {
                     const ports = await navigator.serial.getPorts();
-
+                    
                     // Clear existing options except the first two (default and manual)
                     while (portSelect.options.length > 2) {
                         portSelect.remove(2);
                     }
-
+                    
                     // Add available ports to the dropdown
                     if (ports.length > 0) {
                         ports.forEach((port, index) => {
                             const option = document.createElement('option');
                             const info = port.getInfo();
                             option.value = `port-${index}`;
-                            option.textContent = info.usbVendorId ?
-                                `Device ${index + 1} (VID:${info.usbVendorId.toString(16)}, PID:${info.usbProductId.toString(16)})` :
-                                `Device ${index + 1}`;
+                            option.textContent = info.usbVendorId ? 
+                                `Device ${index+1} (VID:${info.usbVendorId.toString(16)}, PID:${info.usbProductId.toString(16)})` : 
+                                `Device ${index+1}`;
                             option.port = port; // Store the port object directly
                             portSelect.appendChild(option);
                         });
@@ -256,7 +370,7 @@
                         appendToTerminal('Please enter a COM port name.');
                         return;
                     }
-
+                    
                     // For manual entry, we'll need to use navigator.serial.requestPort()
                     // as we can't directly connect to a named port without user selection
                     appendToTerminal(`Please select ${manualPortName} from the dialog that appears...`);
@@ -275,43 +389,43 @@
                         return;
                     }
                 }
-
+                
                 // Configure serial port
-                await port.open({
-                    baudRate: parseInt(baudSelect.value, 10)
+                await port.open({ 
+                    baudRate: parseInt(baudSelect.value, 10) 
                 });
-
-                connectionStatus.textContent = 'Status: Connected to ' + (port.getInfo().usbVendorId ?
-                    `VID: ${port.getInfo().usbVendorId.toString(16)}, PID: ${port.getInfo().usbProductId.toString(16)}` :
+                
+                connectionStatus.textContent = 'Status: Connected to ' + (port.getInfo().usbVendorId ? 
+                    `VID: ${port.getInfo().usbVendorId.toString(16)}, PID: ${port.getInfo().usbProductId.toString(16)}` : 
                     'serial device');
                 connectionStatus.className = 'alert alert-success';
-
+                
                 // Enable/disable UI elements
                 connectBtn.disabled = true;
                 disconnectBtn.disabled = false;
                 commandInput.disabled = false;
                 sendBtn.disabled = false;
                 saveCommandBtn.disabled = false;
-
+                
                 appendToTerminal('Connected to serial port at ' + baudSelect.value + ' baud.');
                 appendToTerminal('Ready to send AT commands...');
-
+                
                 // Set up the reader
                 const textDecoder = new TextDecoderStream();
                 readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
                 reader = textDecoder.readable.getReader();
-
+                
                 // Listen to data coming from the serial device
                 readLoop();
-
+                
                 // Set up the writer
                 const textEncoder = new TextEncoderStream();
                 writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
                 writer = textEncoder.writable.getWriter();
-
+                
                 // Update port list for future use
                 listAvailablePorts();
-
+                
             } catch (error) {
                 console.error('Error connecting to serial port:', error);
                 appendToTerminal('Error connecting to serial port: ' + error.message);
@@ -319,28 +433,28 @@
                 connectionStatus.className = 'alert alert-danger';
             }
         }
-
+        
         // Function to disconnect from the serial port
         async function disconnectFromSerial() {
             if (reader) {
                 await reader.cancel();
-                await readableStreamClosed.catch(() => { });
+                await readableStreamClosed.catch(() => {});
                 reader = null;
                 readableStreamClosed = null;
             }
-
+            
             if (writer) {
                 await writer.close();
                 await writableStreamClosed;
                 writer = null;
                 writableStreamClosed = null;
             }
-
+            
             if (port) {
                 await port.close();
                 port = null;
             }
-
+            
             // Update UI
             connectBtn.disabled = false;
             disconnectBtn.disabled = true;
@@ -349,10 +463,10 @@
             saveCommandBtn.disabled = true;
             connectionStatus.textContent = 'Status: Disconnected';
             connectionStatus.className = 'alert alert-info';
-
+            
             appendToTerminal('Disconnected from serial port.');
         }
-
+        
         // Function to continuously read data from the serial port
         async function readLoop() {
             while (true) {
@@ -372,17 +486,17 @@
                 }
             }
         }
-
+        
         // Function to send AT command
         async function sendCommand() {
             const command = commandInput.value.trim();
             if (!command) return;
-
+            
             if (!writer) {
                 appendToTerminal('Not connected to a serial port.');
                 return;
             }
-
+            
             try {
                 // Add carriage return and line feed to the command
                 const commandWithTermination = command + '\r\n';
@@ -394,34 +508,29 @@
                 appendToTerminal('Error sending command: ' + error.message);
             }
         }
-
+        
         // Function to append text to the terminal
         function appendToTerminal(text) {
             terminal.innerHTML += text + '\n';
             terminal.scrollTop = terminal.scrollHeight;
         }
-
+        
         // Function to clear the terminal
         function clearTerminal() {
             terminal.innerHTML = '';
         }
-
+        
         // Function to save a command as favorite
-        function saveAsFavorite() {
+        async function saveAsFavorite() {
             const command = commandInput.value.trim();
             if (!command) return;
-
-            // Check if command already exists in favorites
-            if (!favoriteCommands.includes(command)) {
-                favoriteCommands.push(command);
-                localStorage.setItem('favoriteCommands', JSON.stringify(favoriteCommands));
-                displayFavoriteCommands();
-                appendToTerminal('Command saved to favorites: ' + command);
-            } else {
-                appendToTerminal('Command already exists in favorites.');
+            
+            const success = await saveCommandToFirebase(command);
+            if (success) {
+                await fetchFavoriteCommands();
             }
         }
-
+        
         // Function to display favorite commands
         function displayFavoriteCommands() {
             if (favoriteCommands.length === 0) {
@@ -432,38 +541,38 @@
                 `;
                 return;
             }
-
+            
             favoritesContainer.innerHTML = '';
-            favoriteCommands.forEach((cmd, index) => {
+            commandDocs.forEach((doc, index) => {
                 const cmdElement = document.createElement('div');
                 cmdElement.className = 'favorite-command';
                 cmdElement.innerHTML = `
-                    <span class="cmd-text">${cmd}</span>
+                    <span class="cmd-text">${doc.command}</span>
                     <div>
-                        <button class="btn btn-sm btn-outline-primary use-cmd" data-cmd="${cmd}">Use</button>
-                        <button class="btn btn-sm btn-outline-danger delete-cmd" data-index="${index}">Delete</button>
+                        <button class="btn btn-sm btn-outline-primary use-cmd" data-cmd="${doc.command}">Use</button>
+                        <button class="btn btn-sm btn-outline-danger delete-cmd" data-id="${doc.id}">Delete</button>
                     </div>
                 `;
                 favoritesContainer.appendChild(cmdElement);
             });
-
+            
             // Add event listeners to the buttons
             document.querySelectorAll('.use-cmd').forEach(btn => {
                 btn.addEventListener('click', () => {
                     commandInput.value = btn.getAttribute('data-cmd');
                 });
             });
-
+            
             document.querySelectorAll('.delete-cmd').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const index = parseInt(btn.getAttribute('data-index'), 10);
-                    favoriteCommands.splice(index, 1);
-                    localStorage.setItem('favoriteCommands', JSON.stringify(favoriteCommands));
-                    displayFavoriteCommands();
+                btn.addEventListener('click', async () => {
+                    const docId = btn.getAttribute('data-id');
+                    const success = await deleteCommandFromFirebase(docId);
+                    if (success) {
+                        await fetchFavoriteCommands();
+                    }
                 });
             });
         }
     </script>
 </body>
-
 </html>
