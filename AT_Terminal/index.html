@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AT Command Interface - SIMCOM A7670C</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .terminal {
+            background-color: #000;
+            color: #00ff00;
+            font-family: monospace;
+            height: 300px;
+            overflow-y: auto;
+            padding: 10px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .favorite-command {
+            cursor: pointer;
+            background-color: #f8f9fa;
+            padding: 5px 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .favorite-command:hover {
+            background-color: #e9ecef;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container my-4">
+        <h1 class="text-center mb-4">AT Command Interface for SIMCOM A7670C</h1>
+
+        <!-- Connection Panel -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Connection Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">COM Port</label>
+                        <div class="input-group">
+                            <select class="form-select" id="portSelect">
+                                <option value="" selected disabled>Select COM Port</option>
+                                <option value="manual">Enter Manually</option>
+                            </select>
+                            <input type="text" class="form-control" id="manualPortInput" placeholder="COM1"
+                                style="display: none;">
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="baudSelect" class="form-label">Baud Rate</label>
+                        <select class="form-select" id="baudSelect">
+                            <option value="9600">9600</option>
+                            <option value="19200">19200</option>
+                            <option value="38400">38400</option>
+                            <option value="57600">57600</option>
+                            <option value="115200" selected>115200</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Connection</label>
+                        <div>
+                            <button id="connectBtn" class="btn btn-primary">Connect</button>
+                            <button id="disconnectBtn" class="btn btn-danger ms-2" disabled>Disconnect</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <div class="alert alert-info" id="connectionStatus">
+                            Status: Disconnected
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Interface -->
+        <div class="row">
+            <!-- Command Interface -->
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>AT Command Terminal</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="terminal mb-3" id="terminal">Welcome to AT Command Interface
+                            Ready to connect to SIMCOM A7670C...
+                        </div>
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" id="commandInput" placeholder="Enter AT command..."
+                                disabled>
+                            <button class="btn btn-outline-primary" type="button" id="sendBtn" disabled>Send</button>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <button class="btn btn-secondary" id="clearBtn">Clear Terminal</button>
+                            <button class="btn btn-success" id="saveCommandBtn" disabled>Save as Favorite</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Favorites Panel -->
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Favorite Commands</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="favoritesContainer">
+                            <!-- Favorite commands will be displayed here -->
+                            <div class="alert alert-light text-center">
+                                No favorite commands saved yet
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Common AT Commands -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Common AT Commands</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+                            <button type="button"
+                                class="list-group-item list-group-item-action common-command">AT</button>
+                            <button type="button"
+                                class="list-group-item list-group-item-action common-command">AT+CSQ</button>
+                            <button type="button"
+                                class="list-group-item list-group-item-action common-command">AT+CPIN?</button>
+                            <button type="button"
+                                class="list-group-item list-group-item-action common-command">AT+CREG?</button>
+                            <button type="button"
+                                class="list-group-item list-group-item-action common-command">AT+COPS?</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global variables
+        let port;
+        let reader;
+        let writer;
+        let readableStreamClosed;
+        let writableStreamClosed;
+        let favoriteCommands = JSON.parse(localStorage.getItem('favoriteCommands')) || [];
+
+        // DOM Elements
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const portSelect = document.getElementById('portSelect');
+        const manualPortInput = document.getElementById('manualPortInput');
+        const baudSelect = document.getElementById('baudSelect');
+        const terminal = document.getElementById('terminal');
+        const commandInput = document.getElementById('commandInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const saveCommandBtn = document.getElementById('saveCommandBtn');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const favoritesContainer = document.getElementById('favoritesContainer');
+        const commonCommands = document.querySelectorAll('.common-command');
+
+        // Check if Web Serial API is supported
+        if (!('serial' in navigator)) {
+            appendToTerminal('Web Serial API is not supported in this browser. Please use Chrome or Edge.');
+            connectBtn.disabled = true;
+        }
+
+        // Event Listeners
+        connectBtn.addEventListener('click', connectToSerial);
+        disconnectBtn.addEventListener('click', disconnectFromSerial);
+        commandInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendCommand();
+        });
+        sendBtn.addEventListener('click', sendCommand);
+        clearBtn.addEventListener('click', clearTerminal);
+        saveCommandBtn.addEventListener('click', saveAsFavorite);
+
+        // Show/hide manual port input based on selection
+        portSelect.addEventListener('change', function () {
+            if (this.value === 'manual') {
+                manualPortInput.style.display = 'block';
+            } else {
+                manualPortInput.style.display = 'none';
+            }
+        });
+
+        // Common commands click event
+        commonCommands.forEach(btn => {
+            btn.addEventListener('click', () => {
+                commandInput.value = btn.textContent;
+            });
+        });
+
+        // Initialize
+        displayFavoriteCommands();
+
+        // Function to get available ports
+        async function listAvailablePorts() {
+            if ('serial' in navigator) {
+                try {
+                    const ports = await navigator.serial.getPorts();
+
+                    // Clear existing options except the first two (default and manual)
+                    while (portSelect.options.length > 2) {
+                        portSelect.remove(2);
+                    }
+
+                    // Add available ports to the dropdown
+                    if (ports.length > 0) {
+                        ports.forEach((port, index) => {
+                            const option = document.createElement('option');
+                            const info = port.getInfo();
+                            option.value = `port-${index}`;
+                            option.textContent = info.usbVendorId ?
+                                `Device ${index + 1} (VID:${info.usbVendorId.toString(16)}, PID:${info.usbProductId.toString(16)})` :
+                                `Device ${index + 1}`;
+                            option.port = port; // Store the port object directly
+                            portSelect.appendChild(option);
+                        });
+                    } else {
+                        appendToTerminal('No previously connected ports found. Use "Connect" to select a port.');
+                    }
+                } catch (error) {
+                    console.error('Error listing ports:', error);
+                    appendToTerminal('Error listing ports: ' + error.message);
+                }
+            }
+        }
+
+        // List available ports on page load
+        listAvailablePorts();
+
+        // Function to connect to the serial port
+        async function connectToSerial() {
+            try {
+                // Check if manual port entry is selected
+                if (portSelect.value === 'manual') {
+                    const manualPortName = manualPortInput.value.trim();
+                    if (!manualPortName) {
+                        appendToTerminal('Please enter a COM port name.');
+                        return;
+                    }
+
+                    // For manual entry, we'll need to use navigator.serial.requestPort()
+                    // as we can't directly connect to a named port without user selection
+                    appendToTerminal(`Please select ${manualPortName} from the dialog that appears...`);
+                    port = await navigator.serial.requestPort();
+                } else if (portSelect.value === '') {
+                    // No port selected in dropdown, show port selection dialog
+                    appendToTerminal('Please select a port from the dialog that appears...');
+                    port = await navigator.serial.requestPort();
+                } else {
+                    // Use the stored port object from the dropdown
+                    const selectedOption = portSelect.options[portSelect.selectedIndex];
+                    if (selectedOption.port) {
+                        port = selectedOption.port;
+                    } else {
+                        appendToTerminal('Error: Invalid port selection.');
+                        return;
+                    }
+                }
+
+                // Configure serial port
+                await port.open({
+                    baudRate: parseInt(baudSelect.value, 10)
+                });
+
+                connectionStatus.textContent = 'Status: Connected to ' + (port.getInfo().usbVendorId ?
+                    `VID: ${port.getInfo().usbVendorId.toString(16)}, PID: ${port.getInfo().usbProductId.toString(16)}` :
+                    'serial device');
+                connectionStatus.className = 'alert alert-success';
+
+                // Enable/disable UI elements
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                commandInput.disabled = false;
+                sendBtn.disabled = false;
+                saveCommandBtn.disabled = false;
+
+                appendToTerminal('Connected to serial port at ' + baudSelect.value + ' baud.');
+                appendToTerminal('Ready to send AT commands...');
+
+                // Set up the reader
+                const textDecoder = new TextDecoderStream();
+                readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+                reader = textDecoder.readable.getReader();
+
+                // Listen to data coming from the serial device
+                readLoop();
+
+                // Set up the writer
+                const textEncoder = new TextEncoderStream();
+                writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+                writer = textEncoder.writable.getWriter();
+
+                // Update port list for future use
+                listAvailablePorts();
+
+            } catch (error) {
+                console.error('Error connecting to serial port:', error);
+                appendToTerminal('Error connecting to serial port: ' + error.message);
+                connectionStatus.textContent = 'Status: Connection failed';
+                connectionStatus.className = 'alert alert-danger';
+            }
+        }
+
+        // Function to disconnect from the serial port
+        async function disconnectFromSerial() {
+            if (reader) {
+                await reader.cancel();
+                await readableStreamClosed.catch(() => { });
+                reader = null;
+                readableStreamClosed = null;
+            }
+
+            if (writer) {
+                await writer.close();
+                await writableStreamClosed;
+                writer = null;
+                writableStreamClosed = null;
+            }
+
+            if (port) {
+                await port.close();
+                port = null;
+            }
+
+            // Update UI
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            commandInput.disabled = true;
+            sendBtn.disabled = true;
+            saveCommandBtn.disabled = true;
+            connectionStatus.textContent = 'Status: Disconnected';
+            connectionStatus.className = 'alert alert-info';
+
+            appendToTerminal('Disconnected from serial port.');
+        }
+
+        // Function to continuously read data from the serial port
+        async function readLoop() {
+            while (true) {
+                try {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        reader.releaseLock();
+                        break;
+                    }
+                    if (value) {
+                        appendToTerminal('[RECV] ' + value);
+                    }
+                } catch (error) {
+                    console.error('Error reading data:', error);
+                    appendToTerminal('Error reading data: ' + error.message);
+                    break;
+                }
+            }
+        }
+
+        // Function to send AT command
+        async function sendCommand() {
+            const command = commandInput.value.trim();
+            if (!command) return;
+
+            if (!writer) {
+                appendToTerminal('Not connected to a serial port.');
+                return;
+            }
+
+            try {
+                // Add carriage return and line feed to the command
+                const commandWithTermination = command + '\r\n';
+                appendToTerminal('[SENT] ' + command);
+                await writer.write(commandWithTermination);
+                commandInput.value = '';
+            } catch (error) {
+                console.error('Error sending command:', error);
+                appendToTerminal('Error sending command: ' + error.message);
+            }
+        }
+
+        // Function to append text to the terminal
+        function appendToTerminal(text) {
+            terminal.innerHTML += text + '\n';
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        // Function to clear the terminal
+        function clearTerminal() {
+            terminal.innerHTML = '';
+        }
+
+        // Function to save a command as favorite
+        function saveAsFavorite() {
+            const command = commandInput.value.trim();
+            if (!command) return;
+
+            // Check if command already exists in favorites
+            if (!favoriteCommands.includes(command)) {
+                favoriteCommands.push(command);
+                localStorage.setItem('favoriteCommands', JSON.stringify(favoriteCommands));
+                displayFavoriteCommands();
+                appendToTerminal('Command saved to favorites: ' + command);
+            } else {
+                appendToTerminal('Command already exists in favorites.');
+            }
+        }
+
+        // Function to display favorite commands
+        function displayFavoriteCommands() {
+            if (favoriteCommands.length === 0) {
+                favoritesContainer.innerHTML = `
+                    <div class="alert alert-light text-center">
+                        No favorite commands saved yet
+                    </div>
+                `;
+                return;
+            }
+
+            favoritesContainer.innerHTML = '';
+            favoriteCommands.forEach((cmd, index) => {
+                const cmdElement = document.createElement('div');
+                cmdElement.className = 'favorite-command';
+                cmdElement.innerHTML = `
+                    <span class="cmd-text">${cmd}</span>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary use-cmd" data-cmd="${cmd}">Use</button>
+                        <button class="btn btn-sm btn-outline-danger delete-cmd" data-index="${index}">Delete</button>
+                    </div>
+                `;
+                favoritesContainer.appendChild(cmdElement);
+            });
+
+            // Add event listeners to the buttons
+            document.querySelectorAll('.use-cmd').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    commandInput.value = btn.getAttribute('data-cmd');
+                });
+            });
+
+            document.querySelectorAll('.delete-cmd').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = parseInt(btn.getAttribute('data-index'), 10);
+                    favoriteCommands.splice(index, 1);
+                    localStorage.setItem('favoriteCommands', JSON.stringify(favoriteCommands));
+                    displayFavoriteCommands();
+                });
+            });
+        }
+    </script>
+</body>
+
+</html>
