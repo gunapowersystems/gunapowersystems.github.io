@@ -32,6 +32,19 @@
         .favorite-command:hover {
             background-color: #e9ecef;
         }
+
+        .cmd-sequence-card {
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #f8f9fa;
+        }
+
+        .sequence-info {
+            font-size: 0.9rem;
+            margin: 5px 0;
+        }
     </style>
 </head>
 
@@ -110,6 +123,25 @@
                             </div>
                             <button class="btn btn-success" id="saveCommandBtn" disabled>Save as Favorite</button>
                         </div>
+
+                        <!-- Command Sequence Panel -->
+                        <div class="cmd-sequence-card mt-3">
+                            <h6>Command Sequence</h6>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+                                    <button class="btn btn-outline-primary" id="uploadBtn">Upload CSV</button>
+                                    <button class="btn btn-outline-success ms-2" id="runSequenceBtn" disabled>Run
+                                        Sequence</button>
+                                </div>
+                                <div id="sequenceInfo" class="sequence-info text-muted">
+                                    No file uploaded
+                                </div>
+                            </div>
+                            <div class="progress mt-2" style="height: 5px; display: none;" id="sequenceProgress">
+                                <div class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -137,17 +169,40 @@
                         <h5>Common AT Commands</h5>
                     </div>
                     <div class="card-body">
+                        <h6>Basic Communication</h6>
+                        <div class="list-group mb-3">
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CPIN?</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CSQ</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CREG?</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+COPS?</button>
+                        </div>
+                
+                        <h6>SMS Configuration</h6>
+                        <div class="list-group mb-3">
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CMGF=1</button>
+                            <button type="button"
+                                class="list-group-item list-group-item-action common-command">AT+CNMI=2,1,0,0,0</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CMGL="ALL"</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CMGR=1</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CMGD=1</button>
+                        </div>
+                
+                        <h6>Phonebook Management</h6>
+                        <div class="list-group mb-3">
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CPBS="SM"</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CPBR=1,20</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CPBF="name"</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CPBS?</button>
+                        </div>
+                
+                        <h6>GPIO Control (Relay)</h6>
                         <div class="list-group">
                             <button type="button"
-                                class="list-group-item list-group-item-action common-command">AT</button>
+                                class="list-group-item list-group-item-action common-command">AT+CGPIO=0,1,1,1</button>
                             <button type="button"
-                                class="list-group-item list-group-item-action common-command">AT+CSQ</button>
-                            <button type="button"
-                                class="list-group-item list-group-item-action common-command">AT+CPIN?</button>
-                            <button type="button"
-                                class="list-group-item list-group-item-action common-command">AT+CREG?</button>
-                            <button type="button"
-                                class="list-group-item list-group-item-action common-command">AT+COPS?</button>
+                                class="list-group-item list-group-item-action common-command">AT+CGPIO=0,1,1,0</button>
+                            <button type="button" class="list-group-item list-group-item-action common-command">AT+CGPIO=0,1,2</button>
                         </div>
                     </div>
                 </div>
@@ -202,6 +257,12 @@
         let writableStreamClosed;
         let favoriteCommands = [];
         let commandDocs = []; // To store document references
+        let commandSequence = []; // To store uploaded command sequence
+        let isRunningSequence = false; // Flag to track if sequence is running
+        let currentCommandIndex = 0; // Current command index in sequence
+        let commandTimeout; // For tracking timeout
+        let responseBuffer = '';
+        let awaitingResponse = false;
 
         // DOM Elements
         const connectBtn = document.getElementById('connectBtn');
@@ -213,12 +274,17 @@
         const commandInput = document.getElementById('commandInput');
         const sendBtn = document.getElementById('sendBtn');
         const clearBtn = document.getElementById('clearBtn');
-        const atPlusBtn = document.getElementById('atPlusBtn'); // New AT+ button
+        const atPlusBtn = document.getElementById('atPlusBtn'); // AT+ button
         const saveCommandBtn = document.getElementById('saveCommandBtn');
         const syncBtn = document.getElementById('syncBtn');
         const connectionStatus = document.getElementById('connectionStatus');
         const favoritesContainer = document.getElementById('favoritesContainer');
         const commonCommands = document.querySelectorAll('.common-command');
+        const csvFileInput = document.getElementById('csvFileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const runSequenceBtn = document.getElementById('runSequenceBtn');
+        const sequenceInfo = document.getElementById('sequenceInfo');
+        const sequenceProgress = document.getElementById('sequenceProgress');
 
         // Check if Web Serial API is supported
         if (!('serial' in navigator)) {
@@ -235,7 +301,7 @@
         sendBtn.addEventListener('click', sendCommand);
         clearBtn.addEventListener('click', clearTerminal);
 
-        // Add event listener for the new AT+ button
+        // AT+ button event
         atPlusBtn.addEventListener('click', () => {
             commandInput.value = "AT+";
             commandInput.focus();
@@ -243,6 +309,14 @@
 
         saveCommandBtn.addEventListener('click', saveAsFavorite);
         syncBtn.addEventListener('click', fetchFavoriteCommands);
+
+        // Command Sequence events
+        uploadBtn.addEventListener('click', () => {
+            csvFileInput.click();
+        });
+
+        csvFileInput.addEventListener('change', handleFileUpload);
+        runSequenceBtn.addEventListener('click', runCommandSequence);
 
         // Show/hide manual port input based on selection
         portSelect.addEventListener('change', function () {
@@ -346,6 +420,145 @@
             }
         }
 
+        // Function to handle CSV file upload
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const contents = e.target.result;
+                    parseCSV(contents);
+                } catch (error) {
+                    appendToTerminal('Error parsing CSV file: ' + error.message);
+                    sequenceInfo.textContent = 'Error: Invalid CSV format';
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Function to parse CSV content
+        function parseCSV(csvContent) {
+            // Split the content by newlines and filter out empty lines
+            const lines = csvContent.split(/\r\n|\n|\r/).filter(line => line.trim().length > 0);
+
+            // Extract commands, assuming one command per line
+            commandSequence = lines.map(line => line.trim());
+
+            // Update UI
+            sequenceInfo.textContent = `Loaded ${commandSequence.length} commands from file`;
+            runSequenceBtn.disabled = !commandSequence.length || !writer;
+
+            appendToTerminal(`CSV file loaded with ${commandSequence.length} AT commands.`);
+        }
+
+        // Function to run the command sequence
+        async function runCommandSequence() {
+            if (!commandSequence.length || !writer || isRunningSequence) {
+                return;
+            }
+
+            isRunningSequence = true;
+            currentCommandIndex = 0;
+
+            // Show progress bar
+            sequenceProgress.style.display = 'block';
+            updateProgressBar(0);
+
+            appendToTerminal('Starting command sequence execution...');
+
+            // Start sending commands
+            await sendNextSequenceCommand();
+        }
+
+        // Function to send the next command in the sequence
+        async function sendNextSequenceCommand() {
+            if (!isRunningSequence || currentCommandIndex >= commandSequence.length) {
+                finishSequence();
+                return;
+            }
+
+            const command = commandSequence[currentCommandIndex];
+
+            try {
+                // Clear response buffer before sending new command
+                responseBuffer = '';
+                awaitingResponse = true;
+
+                // Send the command
+                appendToTerminal(`[SEQUENCE ${currentCommandIndex + 1}/${commandSequence.length}] Sending: ${command}`);
+                const commandWithTermination = command + '\r\n';
+                await writer.write(commandWithTermination);
+
+                // Set timeout for response
+                commandTimeout = setTimeout(() => {
+                    appendToTerminal(`[TIMEOUT] No complete response received for command: ${command}`);
+                    awaitingResponse = false;
+                    currentCommandIndex++;
+                    updateProgressBar(currentCommandIndex / commandSequence.length * 100);
+                    sendNextSequenceCommand();
+                }, 5000); // 5 second timeout
+
+            } catch (error) {
+                appendToTerminal(`[ERROR] Error sending command ${command}: ${error.message}`);
+                clearTimeout(commandTimeout);
+                awaitingResponse = false;
+                currentCommandIndex++;
+                updateProgressBar(currentCommandIndex / commandSequence.length * 100);
+                await sendNextSequenceCommand();
+            }
+        }
+
+        // Function to handle response received during sequence execution
+        function handleSequenceResponse(data) {
+            if (!isRunningSequence || !awaitingResponse) {
+                return;
+            }
+
+            // Add the received data to the response buffer
+            responseBuffer += data;
+
+            // Check if we received an OK or ERROR response
+            if (responseBuffer.includes('OK') ||
+                responseBuffer.includes('ERROR') ||
+                responseBuffer.includes('+CME ERROR') ||
+                responseBuffer.includes('+CMS ERROR')) {
+
+                // We have a complete response
+                clearTimeout(commandTimeout);
+                awaitingResponse = false;
+
+                // Log complete response if needed
+                appendToTerminal(`[COMPLETE RESPONSE] ${responseBuffer.trim()}`);
+
+                // Move to next command
+                currentCommandIndex++;
+                updateProgressBar(currentCommandIndex / commandSequence.length * 100);
+
+                // Small delay before sending next command
+                setTimeout(() => {
+                    sendNextSequenceCommand();
+                }, 500);
+            }
+        }
+
+        // Function to finish sequence execution
+        function finishSequence() {
+            isRunningSequence = false;
+            appendToTerminal(`[COMPLETE] Command sequence execution finished.`);
+            sequenceProgress.style.display = 'none';
+        }
+
+        // Function to update the progress bar
+        function updateProgressBar(percentage) {
+            const progressBar = sequenceProgress.querySelector('.progress-bar');
+            progressBar.style.width = `${percentage}%`;
+            sequenceInfo.textContent = `Executing: ${currentCommandIndex}/${commandSequence.length} commands (${Math.round(percentage)}%)`;
+        }
+
         // Function to get available ports
         async function listAvailablePorts() {
             if ('serial' in navigator) {
@@ -428,6 +641,7 @@
                 commandInput.disabled = false;
                 sendBtn.disabled = false;
                 saveCommandBtn.disabled = false;
+                runSequenceBtn.disabled = commandSequence.length === 0;
 
                 appendToTerminal('Connected to serial port at ' + baudSelect.value + ' baud.');
                 appendToTerminal('Ready to send AT commands...');
@@ -458,6 +672,15 @@
 
         // Function to disconnect from the serial port
         async function disconnectFromSerial() {
+            // If a sequence is running, stop it
+            if (isRunningSequence) {
+                isRunningSequence = false;
+                clearTimeout(commandTimeout);
+                appendToTerminal('[ABORT] Command sequence execution aborted.');
+                sequenceProgress.style.display = 'none';
+                sequenceInfo.textContent = `Loaded ${commandSequence.length} commands from file`;
+            }
+
             if (reader) {
                 await reader.cancel();
                 await readableStreamClosed.catch(() => { });
@@ -483,6 +706,7 @@
             commandInput.disabled = true;
             sendBtn.disabled = true;
             saveCommandBtn.disabled = true;
+            runSequenceBtn.disabled = true;
             connectionStatus.textContent = 'Status: Disconnected';
             connectionStatus.className = 'alert alert-info';
 
@@ -500,6 +724,11 @@
                     }
                     if (value) {
                         appendToTerminal('[RECV] ' + value);
+
+                        // If we're running a sequence, handle response received
+                        if (isRunningSequence) {
+                            handleSequenceResponse(value);
+                        }
                     }
                 } catch (error) {
                     console.error('Error reading data:', error);
