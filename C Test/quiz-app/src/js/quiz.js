@@ -4,13 +4,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     document.getElementById('current-date').textContent = currentDate.toLocaleDateString('en-US', options);
 
-    const submitBtn = document.getElementById('submit');
+    // Wait for sections to load before initializing form handlers
+    document.body.addEventListener('htmx:afterSettle', function() {
+        setupFormHandlers();
+    });
+});
+
+function setupFormHandlers() {
+    const form = document.getElementById('quiz-form');
     
-    if (submitBtn) {
-        submitBtn.addEventListener('click', handleSubmit);
+    if (form) {
+        form.addEventListener('submit', handleSubmit);
     }
 
-    // Add validation and modern feedback to required fields
+    // Add validation to required fields
     const textareas = document.querySelectorAll('textarea');
     textareas.forEach(textarea => {
         textarea.addEventListener('input', function() {
@@ -27,7 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Add file input change handlers with modern feedback
+    // Add file input change handlers
     document.querySelectorAll('.file-input').forEach(input => {
         input.addEventListener('change', function() {
             const fileCount = this.files.length;
@@ -47,103 +54,74 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+}
 
-    // Add smooth scroll when navigating between sections
-    document.querySelectorAll('.section').forEach(section => {
-        section.addEventListener('click', function(e) {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                this.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        });
-    });
-});
-
-function handleSubmit(e) {
+async function handleSubmit(e) {
     e.preventDefault();
     
-    // Collect all answers
-    const answers = {
-        sectionA: {},
-        sectionB: {},
-        sectionC: {}
-    };
+    try {
+        showToast('Submitting your answers...', 'info');
 
-    // Collect MCQ answers
-    document.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
-        answers.sectionA[radio.name] = radio.value;
-    });
+        // Get Firebase database reference
+        const { ref, set } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js');
+        const database = window.firebaseDB;
 
-    // Collect short answers and files
-    document.querySelectorAll('#section-b textarea').forEach(textarea => {
-        answers.sectionB[textarea.name] = {
-            text: textarea.value,
-            files: Array.from(document.querySelector(`input[name="files-${textarea.name}"]`)?.files || [])
-                .map(file => file.name)
+        // Generate a unique submission ID
+        const submissionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Collect MCQ answers (section A)
+        const sectionAAnswers = {};
+        const sectionA = document.getElementById('section-a');
+        sectionA.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
+            sectionAAnswers[radio.name] = radio.value;
+        });
+
+        console.log('Section A Answers:', sectionAAnswers); // Debug log
+
+        // Collect short answers (section B)
+        const sectionBAnswers = {};
+        document.querySelectorAll('#section-b textarea').forEach(textarea => {
+            if (textarea.value.trim()) {
+                sectionBAnswers[textarea.name] = textarea.value.trim();
+            }
+        });
+
+        // Collect programming answers (section C)
+        const sectionCAnswers = {};
+        document.querySelectorAll('#section-c textarea').forEach(textarea => {
+            if (textarea.value.trim()) {
+                sectionCAnswers[textarea.name] = textarea.value.trim();
+            }
+        });
+
+        // Create submission data
+        const submissionData = {
+            timestamp: new Date().toISOString(),
+            studentId: "test-student", // You can add actual student ID later
+            answers: {
+                sectionA: sectionAAnswers,
+                sectionB: sectionBAnswers,
+                sectionC: sectionCAnswers
+            }
         };
-    });
 
-    // Collect programming answers and files
-    document.querySelectorAll('#section-c textarea').forEach(textarea => {
-        answers.sectionC[textarea.name] = {
-            code: textarea.value,
-            files: Array.from(document.querySelector(`input[name="files-${textarea.name}"]`)?.files || [])
-                .map(file => file.name)
-        };
-    });
+        // Save to Firebase
+        const submissionRef = ref(database, `submissions/${submissionId}`);
+        await set(submissionRef, submissionData);
 
-    // Validate answers with modern feedback
-    const totalQuestions = {
-        sectionA: 10,
-        sectionB: 5,
-        sectionC: 2
-    };
-
-    let isValid = true;
-    let invalidSections = [];
-
-    // Check Section A (MCQs)
-    if (Object.keys(answers.sectionA).length < totalQuestions.sectionA) {
-        invalidSections.push('Multiple Choice Questions');
-        isValid = false;
-        document.querySelector('section-a').classList.add('section-invalid');
-    } else {
-        document.querySelector('section-a').classList.remove('section-invalid');
-    }
-
-    // Check Section B (Short Answers)
-    const shortAnswers = Object.values(answers.sectionB).filter(answer => answer.text.trim() !== '');
-    if (shortAnswers.length < totalQuestions.sectionB) {
-        invalidSections.push('Short Answer Questions');
-        isValid = false;
-        document.querySelector('section-b').classList.add('section-invalid');
-    } else {
-        document.querySelector('section-b').classList.remove('section-invalid');
-    }
-
-    // Check Section C (Programming)
-    const programmingAnswers = Object.values(answers.sectionC).filter(answer => answer.code.trim() !== '');
-    if (programmingAnswers.length < totalQuestions.sectionC) {
-        invalidSections.push('Programming Questions');
-        isValid = false;
-        document.querySelector('section-c').classList.add('section-invalid');
-    } else {
-        document.querySelector('section-c').classList.remove('section-invalid');
-    }
-
-    if (!isValid) {
-        showToast(`Please complete all questions in: ${invalidSections.join(', ')}`, 'error');
-        return;
-    }
-
-    // If everything is valid, show confirmation and store answers
-    if (confirm('Are you sure you want to submit your answers?')) {
-        localStorage.setItem('quizAnswers', JSON.stringify(answers));
+        console.log('Submission successful:', submissionId); // Debug log
         showToast('Your answers have been submitted successfully!', 'success');
+        
+        // Disable form after submission
         document.querySelector('.quiz-container').classList.add('submitted');
+        
+    } catch (error) {
+        console.error('Submission error:', error);
+        showToast('Failed to submit answers. Please try again.', 'error');
     }
 }
 
-// Modern toast notification
+// Toast notification function remains unchanged
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
