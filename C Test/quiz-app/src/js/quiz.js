@@ -1,22 +1,44 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     // Update current date
     const currentDate = new Date();
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     document.getElementById('current-date').textContent = currentDate.toLocaleDateString('en-US', options);
 
-    // Wait for sections to load before initializing form handlers
-    document.body.addEventListener('htmx:afterSettle', function() {
-        setupFormHandlers();
-    });
-});
+    // Load previous submission from Firebase only once when page loads
+    await loadInitialSubmission();
 
-function setupFormHandlers() {
+    // Setup form submit handler directly
     const form = document.getElementById('quiz-form');
-    
     if (form) {
         form.addEventListener('submit', handleSubmit);
     }
 
+    // Wait for sections to load before initializing other handlers
+    document.body.addEventListener('htmx:afterSettle', function() {
+        setupInputHandlers();
+    });
+});
+
+async function loadInitialSubmission() {
+    try {
+        const { ref, get } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js');
+        const database = window.firebaseDB;
+        
+        const submissionRef = ref(database, 'current-submission');
+        const snapshot = await get(submissionRef);
+        
+        if (snapshot.exists()) {
+            const submissionData = snapshot.val();
+            await loadPreviousAnswers(submissionData);
+            showToast('Previous answers loaded successfully', 'success');
+        }
+    } catch (error) {
+        console.error('Error loading previous submission:', error);
+        showToast('Failed to load previous answers', 'error');
+    }
+}
+
+function setupInputHandlers() {
     // Add validation to required fields
     const textareas = document.querySelectorAll('textarea');
     textareas.forEach(textarea => {
@@ -60,14 +82,11 @@ async function handleSubmit(e) {
     e.preventDefault();
     
     try {
-        showToast('Submitting your answers...', 'info');
+        showToast('Saving your answers...', 'info');
 
         // Get Firebase database reference
         const { ref, set } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js');
         const database = window.firebaseDB;
-
-        // Generate a unique submission ID
-        const submissionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         // Collect MCQ answers (section A)
         const sectionAAnswers = {};
@@ -75,8 +94,6 @@ async function handleSubmit(e) {
         sectionA.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
             sectionAAnswers[radio.name] = radio.value;
         });
-
-        console.log('Section A Answers:', sectionAAnswers); // Debug log
 
         // Collect short answers (section B)
         const sectionBAnswers = {};
@@ -97,6 +114,7 @@ async function handleSubmit(e) {
         // Create submission data
         const submissionData = {
             timestamp: new Date().toISOString(),
+            lastUpdated: new Date().toISOString(),
             studentId: "test-student", // You can add actual student ID later
             answers: {
                 sectionA: sectionAAnswers,
@@ -105,19 +123,64 @@ async function handleSubmit(e) {
             }
         };
 
-        // Save to Firebase
-        const submissionRef = ref(database, `submissions/${submissionId}`);
+        // Use a fixed path for the submission instead of generating a new ID
+        const submissionRef = ref(database, 'current-submission');
         await set(submissionRef, submissionData);
 
-        console.log('Submission successful:', submissionId); // Debug log
-        showToast('Your answers have been submitted successfully!', 'success');
-        
-        // Disable form after submission
-        document.querySelector('.quiz-container').classList.add('submitted');
+        console.log('Answers saved successfully');
+        showToast('Your answers have been saved. You can continue making changes if needed.', 'success');
         
     } catch (error) {
         console.error('Submission error:', error);
-        showToast('Failed to submit answers. Please try again.', 'error');
+        showToast('Failed to save answers. Please try again.', 'error');
+    }
+}
+
+async function loadPreviousAnswers(submissionData) {
+    // Wait for sections to be loaded by HTMX
+    await new Promise(resolve => {
+        const checkSections = () => {
+            if (document.getElementById('section-a').children.length > 0) {
+                resolve();
+            } else {
+                setTimeout(checkSections, 100);
+            }
+        };
+        checkSections();
+    });
+
+    // Load Section A (MCQ) answers
+    if (submissionData.answers.sectionA) {
+        Object.entries(submissionData.answers.sectionA).forEach(([name, value]) => {
+            const radio = document.querySelector(`input[type="radio"][name="${name}"][value="${value}"]`);
+            if (radio) {
+                radio.checked = true;
+            }
+        });
+    }
+
+    // Load Section B answers
+    if (submissionData.answers.sectionB) {
+        Object.entries(submissionData.answers.sectionB).forEach(([name, value]) => {
+            const textarea = document.querySelector(`#section-b textarea[name="${name}"]`);
+            if (textarea) {
+                textarea.value = value;
+                textarea.style.height = 'auto';
+                textarea.style.height = textarea.scrollHeight + 'px';
+            }
+        });
+    }
+
+    // Load Section C answers
+    if (submissionData.answers.sectionC) {
+        Object.entries(submissionData.answers.sectionC).forEach(([name, value]) => {
+            const textarea = document.querySelector(`#section-c textarea[name="${name}"]`);
+            if (textarea) {
+                textarea.value = value;
+                textarea.style.height = 'auto';
+                textarea.style.height = textarea.scrollHeight + 'px';
+            }
+        });
     }
 }
 
