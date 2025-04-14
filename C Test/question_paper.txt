@@ -1,0 +1,105 @@
+C Programming - Class Test
+Duration: 60 Minutes | Max Marks: 30
+
+Section A: Multiple Choice Questions (1 Mark Each)
+Total: 10 Marks
+
+Which format specifier is used to print a double in C?
+a) %d
+b) %f
+c) %lf
+d) %c
+
+What is the output of printf("Hello\nWorld");?
+a) Hello World
+b) Hello\nWorld
+c) Hello
+World
+d) Compiler error
+
+Which escape sequence represents a tab in C?
+a) \n
+b) \t
+c) \a
+d) \\
+
+What is the output of printf("%d", 10 + 3 * 2);?
+a) 26
+b) 16
+c) 20
+d) 13
+
+Which loop executes at least once even if the condition is false?
+a) for
+b) while
+c) do-while
+d) if-else
+
+What is the output of:
+
+c
+Copy
+int i = 0;
+while (i < 3) {
+    printf("%d ", i++);
+}
+a) 0 1 2
+b) 1 2 3
+c) 0 1 2 3
+d) Infinite loop
+
+Which data type is used to store whole numbers in C?
+a) float
+b) int
+c) char
+d) double
+
+Which header file is required to use printf() and scanf()?
+a) <math.h>
+b) <stdio.h>
+c) <stdlib.h>
+d) <string.h>
+
+What is the output of printf("%.1f", 5.0 / 2);?
+a) 2
+b) 2.0
+c) 2.5
+d) 2.50
+
+What will this print?
+
+c
+Copy
+printf("C\\C++");
+a) C\C++
+b) C\\C++
+c) CC++
+d) Compiler error
+
+Section B: Short Answer Questions (2 Marks Each)
+Total: 10 Marks
+
+Explain the difference between ++i and i++ with an example.
+
+What is the purpose of the const keyword? Give an example.
+
+Write the syntax of a while loop and a for loop. How do they differ?
+
+What is the difference between = and == in C? Give examples.
+
+What is the purpose of the printf() function in C? Give one example.
+
+Section C: Programming Questions (5 Marks Each)
+Total: 10 Marks
+
+16. Write a program to:
+
+Print all even numbers between 1 and 20 using a for loop.
+
+Calculate the sum of these even numbers using a while loop.
+
+17. Write a program to:
+
+Define a function isPrime(int n) that checks if a number is prime.
+
+Call this function in main() to print all prime numbers between 1 and 50.
