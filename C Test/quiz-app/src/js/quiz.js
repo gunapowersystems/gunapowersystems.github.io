@@ -16,6 +16,21 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Add file input change handlers
+    document.querySelectorAll('.file-input').forEach(input => {
+        input.addEventListener('change', function() {
+            const fileCount = this.files.length;
+            const fileChosenSpan = this.parentElement.querySelector('.file-chosen');
+            if (fileCount > 0) {
+                fileChosenSpan.textContent = fileCount === 1 
+                    ? this.files[0].name 
+                    : `${fileCount} files selected`;
+            } else {
+                fileChosenSpan.textContent = '';
+            }
+        });
+    });
 });
 
 function handleSubmit(e) {
