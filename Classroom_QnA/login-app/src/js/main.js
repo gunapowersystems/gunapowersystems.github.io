@@ -13,13 +13,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Handle main page login buttons
     if (adminLoginButton && userLoginButton) {
-        adminLoginButton.addEventListener('click', function() {
-            const passwordInput = prompt('Enter Admin Password:');
+        const submitPasswordButton = document.getElementById('submit-password');
+        const adminPasswordInput = document.getElementById('admin-password');
+        const adminPasswordModal = document.getElementById('adminPasswordModal');
+        
+        submitPasswordButton.addEventListener('click', function() {
+            const passwordInput = adminPasswordInput.value;
             if (passwordInput === adminPassword) {
+                // Hide modal before redirecting
+                $('#adminPasswordModal').modal('hide');
                 window.location.href = 'admin.html';
             } else {
                 alert('Incorrect password. Please try again.');
             }
+            // Clear password field for security
+            adminPasswordInput.value = '';
+        });
+
+        // Also handle form submission on Enter key
+        document.getElementById('admin-password-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitPasswordButton.click();
         });
 
         userLoginButton.addEventListener('click', function() {
