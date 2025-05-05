@@ -102,8 +102,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Handle displaying attendees list (Admin page)
     if (attendeesList) {
+        console.log('Initializing attendees list listener');
         const attendeesRef = ref(database, 'attendees');
+        
         onValue(attendeesRef, (snapshot) => {
+            console.log('Received attendees update:', snapshot.val());
             attendeesList.innerHTML = '';
             const attendees = snapshot.val();
             
@@ -112,22 +115,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Remove inactive users (more than 1 minute without updates)
+            let activeCount = 0;
             const currentTime = Date.now();
             const activeTimeout = 60000; // 1 minute
 
             Object.entries(attendees).forEach(([id, data]) => {
+                console.log('Processing attendee:', id, data);
                 if (currentTime - data.lastSeen <= activeTimeout) {
+                    activeCount++;
                     const attendeeItem = document.createElement('li');
-                    attendeeItem.className = 'list-group-item';
-                    attendeeItem.textContent = data.name;
+                    attendeeItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    attendeeItem.innerHTML = `
+                        ${data.name}
+                        <span class="badge badge-success badge-pill">Active</span>
+                    `;
                     attendeesList.appendChild(attendeeItem);
                 } else {
-                    // Remove inactive user
+                    console.log('Removing inactive user:', id);
                     const inactiveRef = ref(database, `attendees/${id}`);
                     set(inactiveRef, null);
                 }
             });
+
+            if (activeCount === 0) {
+                attendeesList.innerHTML = '<li class="list-group-item">No active attendees</li>';
+            }
+        }, (error) => {
+            console.error('Error loading attendees:', error);
+            attendeesList.innerHTML = '<li class="list-group-item text-danger">Error loading attendees</li>';
         });
     }
 
