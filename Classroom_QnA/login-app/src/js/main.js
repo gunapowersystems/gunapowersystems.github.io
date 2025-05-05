@@ -161,12 +161,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Convert the object to an array and sort by timestamp
+            // Convert the object to an array and sort by timestamp in ascending order
             const questionList = Object.entries(questions)
                 .map(([key, value]) => ({ ...value, key }))
-                .sort((a, b) => b.timestamp - a.timestamp);
+                .sort((a, b) => a.timestamp - b.timestamp); // Changed to ascending order
 
-            // Display each question
+            // Display each question with sequential numbering
             questionList.forEach((question, index) => {
                 const questionElement = document.createElement('div');
                 questionElement.className = 'card mb-3';
