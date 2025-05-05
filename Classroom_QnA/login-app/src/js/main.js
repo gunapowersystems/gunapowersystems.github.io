@@ -267,15 +267,48 @@ document.addEventListener('DOMContentLoaded', function() {
                 const questionElement = document.createElement('div');
                 questionElement.className = 'card mb-4';
                 
-                // Create the answers section
-                const answersHtml = question.answers ? 
-                    Object.entries(question.answers)
-                        .map(([userId, answer]) => `
-                            <div class="answer-item border-left pl-3 mb-2">
-                                <strong>${answer.userName}:</strong> ${answer.text}
-                                <small class="text-muted d-block">Answered: ${new Date(answer.timestamp).toLocaleString()}</small>
-                            </div>
-                        `).join('') : '';
+                // Create the answers section with collapsible elements
+                let answersHtml = '';
+                if (question.answers) {
+                    // Group answers by user
+                    const answersByUser = {};
+                    Object.entries(question.answers).forEach(([answerId, answer]) => {
+                        if (!answersByUser[answer.userName]) {
+                            answersByUser[answer.userName] = [];
+                        }
+                        answersByUser[answer.userName].push({
+                            ...answer,
+                            id: answerId
+                        });
+                    });
+
+                    // Create collapsible sections for each user's answers
+                    answersHtml = Object.entries(answersByUser)
+                        .map(([userName, userAnswers]) => {
+                            const latestAnswer = userAnswers[userAnswers.length - 1];
+                            const answerId = `answer-${question.key}-${latestAnswer.id}`;
+                            return `
+                                <div class="user-answer mb-2">
+                                    <button class="btn btn-link p-0 text-left text-primary" 
+                                            data-toggle="collapse" 
+                                            data-target="#${answerId}" 
+                                            aria-expanded="false">
+                                        ${userName}
+                                    </button>
+                                    <div id="${answerId}" class="collapse">
+                                        <div class="pl-3 pt-2">
+                                            ${userAnswers.map(ans => `
+                                                <div class="answer-content mb-2">
+                                                    <div class="text-dark">${ans.text}</div>
+                                                    <small class="text-muted">Answered: ${new Date(ans.timestamp).toLocaleString()}</small>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                }
 
                 questionElement.innerHTML = `
                     <div class="card-header">
@@ -296,6 +329,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 questionsAnswersContainer.appendChild(questionElement);
             });
+        }, {
+            serverTimeOffset: 0
         });
     }
 });
