@@ -146,12 +146,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Handle displaying questions (User page)
+    // Handle displaying questions with answer functionality (User page)
     if (questionsContainer) {
-        // Reference to questions in Firebase
-        const questionsRef = ref(database, 'questions');
+        let currentUserName = ''; // Will be set when user joins
         
         // Listen for changes in the questions data
+        const questionsRef = ref(database, 'questions');
         onValue(questionsRef, (snapshot) => {
             questionsContainer.innerHTML = '';
             const questions = snapshot.val();
@@ -161,26 +161,141 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Convert the object to an array and sort by timestamp in ascending order
+            // Convert the object to an array and sort by timestamp
             const questionList = Object.entries(questions)
                 .map(([key, value]) => ({ ...value, key }))
-                .sort((a, b) => a.timestamp - b.timestamp); // Changed to ascending order
+                .sort((a, b) => a.timestamp - b.timestamp);
 
-            // Display each question with sequential numbering
+            // Display each question with answer section
             questionList.forEach((question, index) => {
                 const questionElement = document.createElement('div');
                 questionElement.className = 'card mb-3';
+                
+                // Create the answers section
+                const answersHtml = question.answers ? 
+                    Object.entries(question.answers)
+                        .map(([userId, answer]) => `
+                            <div class="answer-item mb-2">
+                                <strong>${answer.userName}:</strong> ${answer.text}
+                                <small class="text-muted d-block">Answered: ${new Date(answer.timestamp).toLocaleString()}</small>
+                            </div>
+                        `).join('') : '';
+
                 questionElement.innerHTML = `
                     <div class="card-body">
                         <h5 class="card-title">Question ${index + 1}</h5>
                         <p class="card-text">${question.text}</p>
-                        <small class="text-muted">Posted: ${new Date(question.timestamp).toLocaleString()}</small>
+                        <small class="text-muted d-block mb-3">Posted: ${new Date(question.timestamp).toLocaleString()}</small>
+                        
+                        <div class="answers-section mb-3">
+                            <h6>Answers:</h6>
+                            <div class="answers-list">
+                                ${answersHtml || '<p class="text-muted">No answers yet</p>'}
+                            </div>
+                        </div>
+
+                        <div class="answer-form">
+                            <div class="form-group">
+                                <textarea class="form-control answer-input" rows="2" placeholder="Type your answer here..."></textarea>
+                            </div>
+                            <button class="btn btn-primary submit-answer" data-question-id="${question.key}">Submit Answer</button>
+                        </div>
                     </div>
                 `;
+
+                // Add event listener for submit answer button
+                const submitButton = questionElement.querySelector('.submit-answer');
+                const answerInput = questionElement.querySelector('.answer-input');
+
+                submitButton.addEventListener('click', async () => {
+                    const answerText = answerInput.value.trim();
+                    if (!answerText) {
+                        alert('Please enter an answer first');
+                        return;
+                    }
+
+                    try {
+                        const answersRef = ref(database, `questions/${question.key}/answers`);
+                        const newAnswer = {
+                            text: answerText,
+                            userName: currentUserName,
+                            timestamp: Date.now()
+                        };
+                        await push(answersRef, newAnswer);
+                        answerInput.value = '';
+                    } catch (error) {
+                        console.error('Error submitting answer:', error);
+                        alert('Error submitting answer: ' + error.message);
+                    }
+                });
+
                 questionsContainer.appendChild(questionElement);
             });
-        }, (error) => {
-            questionsContainer.innerHTML = '<p class="alert alert-danger">Error loading questions: ' + error.message + '</p>';
+        });
+
+        // Store username when user joins
+        if (joinButton) {
+            const originalJoinButtonClick = joinButton.onclick;
+            joinButton.onclick = async function(e) {
+                const nameInput = document.getElementById('user-name');
+                currentUserName = nameInput.value.trim();
+                if (originalJoinButtonClick) {
+                    originalJoinButtonClick.call(this, e);
+                }
+            };
+        }
+    }
+
+    // Handle displaying questions and answers (Admin page)
+    const questionsAnswersContainer = document.getElementById('questions-answers-container');
+    if (questionsAnswersContainer) {
+        const questionsRef = ref(database, 'questions');
+        onValue(questionsRef, (snapshot) => {
+            questionsAnswersContainer.innerHTML = '';
+            const questions = snapshot.val();
+            
+            if (!questions) {
+                questionsAnswersContainer.innerHTML = '<p class="alert alert-info">No questions posted yet.</p>';
+                return;
+            }
+
+            const questionList = Object.entries(questions)
+                .map(([key, value]) => ({ ...value, key }))
+                .sort((a, b) => a.timestamp - b.timestamp);
+
+            questionList.forEach((question, index) => {
+                const questionElement = document.createElement('div');
+                questionElement.className = 'card mb-4';
+                
+                // Create the answers section
+                const answersHtml = question.answers ? 
+                    Object.entries(question.answers)
+                        .map(([userId, answer]) => `
+                            <div class="answer-item border-left pl-3 mb-2">
+                                <strong>${answer.userName}:</strong> ${answer.text}
+                                <small class="text-muted d-block">Answered: ${new Date(answer.timestamp).toLocaleString()}</small>
+                            </div>
+                        `).join('') : '';
+
+                questionElement.innerHTML = `
+                    <div class="card-header">
+                        <h5 class="mb-0">Question ${index + 1}</h5>
+                        <small class="text-muted">Posted: ${new Date(question.timestamp).toLocaleString()}</small>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">${question.text}</p>
+                        
+                        <div class="answers-section mt-3">
+                            <h6>Answers:</h6>
+                            <div class="answers-list">
+                                ${answersHtml || '<p class="text-muted">No answers yet</p>'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                questionsAnswersContainer.appendChild(questionElement);
+            });
         });
     }
 });
