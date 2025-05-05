@@ -8,14 +8,33 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body>
-    <div class="container mt-5">
-        <div id="admin-content">
-            <h2 class="mb-4">Post a Question</h2>
-            <div class="form-group">
-                <label for="question">Question:</label>
-                <textarea class="form-control" id="question" rows="3" required></textarea>
+    <div class="container-fluid mt-5">
+        <div class="row">
+            <!-- Questions Section -->
+            <div class="col-md-8">
+                <div id="admin-content">
+                    <h2 class="mb-4">Post a Question</h2>
+                    <div class="form-group">
+                        <label for="question">Question:</label>
+                        <textarea class="form-control" id="question" rows="3" required></textarea>
+                    </div>
+                    <button id="post-button" class="btn btn-primary">Post</button>
+                </div>
             </div>
-            <button id="post-button" class="btn btn-primary">Post</button>
+            
+            <!-- Attendees Section -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Active Attendees</h3>
+                    </div>
+                    <div class="card-body">
+                        <ul id="attendees-list" class="list-group">
+                            <!-- Attendees will be listed here -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     <script type="module" src="../js/firebase-config.js"></script>

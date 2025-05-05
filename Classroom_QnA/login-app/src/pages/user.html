@@ -8,7 +8,16 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body>
-    <div class="container mt-5">
+    <div id="name-form" class="container mt-5">
+        <h2>Welcome!</h2>
+        <div class="form-group">
+            <label for="user-name">Please enter your name:</label>
+            <input type="text" class="form-control" id="user-name" required>
+            <button id="join-button" class="btn btn-primary mt-3">Join Class</button>
+        </div>
+    </div>
+
+    <div id="content" class="container mt-5" style="display: none;">
         <h1>Questions from Admin</h1>
         <div id="questions-container" class="mt-4">
             <!-- Questions will be displayed here -->

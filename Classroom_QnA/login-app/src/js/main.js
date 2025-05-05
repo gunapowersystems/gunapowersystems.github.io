@@ -1,10 +1,14 @@
-import { database, ref, push, onValue, set } from './firebase-config.js';
+import { database, ref, push, onValue, set, onDisconnect } from './firebase-config.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     const adminLoginButton = document.getElementById('admin-login');
     const userLoginButton = document.getElementById('user-login');
     const postButton = document.getElementById('post-button');
     const questionsContainer = document.getElementById('questions-container');
+    const nameForm = document.getElementById('name-form');
+    const contentDiv = document.getElementById('content');
+    const joinButton = document.getElementById('join-button');
+    const attendeesList = document.getElementById('attendees-list');
     const adminPassword = 'letmein';
 
     // Handle main page login buttons
@@ -20,6 +24,43 @@ document.addEventListener('DOMContentLoaded', function() {
 
         userLoginButton.addEventListener('click', function() {
             window.location.href = 'user.html';
+        });
+    }
+
+    // Handle user name submission and presence
+    if (joinButton) {
+        joinButton.addEventListener('click', async function() {
+            const nameInput = document.getElementById('user-name');
+            const userName = nameInput.value.trim();
+            
+            if (userName) {
+                // Create a unique ID for this user session
+                const userId = 'user-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                const userRef = ref(database, `attendees/${userId}`);
+                
+                // Set up presence handling
+                await set(userRef, {
+                    name: userName,
+                    lastSeen: Date.now()
+                });
+
+                // Remove user data when they disconnect
+                onDisconnect(userRef).remove();
+
+                // Update lastSeen every 30 seconds while connected
+                setInterval(() => {
+                    set(userRef, {
+                        name: userName,
+                        lastSeen: Date.now()
+                    });
+                }, 30000);
+
+                // Show the content
+                nameForm.style.display = 'none';
+                contentDiv.style.display = 'block';
+            } else {
+                alert('Please enter your name');
+            }
         });
     }
 
@@ -56,6 +97,37 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 alert('Please enter a question first.');
             }
+        });
+    }
+
+    // Handle displaying attendees list (Admin page)
+    if (attendeesList) {
+        const attendeesRef = ref(database, 'attendees');
+        onValue(attendeesRef, (snapshot) => {
+            attendeesList.innerHTML = '';
+            const attendees = snapshot.val();
+            
+            if (!attendees) {
+                attendeesList.innerHTML = '<li class="list-group-item">No attendees yet</li>';
+                return;
+            }
+
+            // Remove inactive users (more than 1 minute without updates)
+            const currentTime = Date.now();
+            const activeTimeout = 60000; // 1 minute
+
+            Object.entries(attendees).forEach(([id, data]) => {
+                if (currentTime - data.lastSeen <= activeTimeout) {
+                    const attendeeItem = document.createElement('li');
+                    attendeeItem.className = 'list-group-item';
+                    attendeeItem.textContent = data.name;
+                    attendeesList.appendChild(attendeeItem);
+                } else {
+                    // Remove inactive user
+                    const inactiveRef = ref(database, `attendees/${id}`);
+                    set(inactiveRef, null);
+                }
+            });
         });
     }
 

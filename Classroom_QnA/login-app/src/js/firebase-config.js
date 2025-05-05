@@ -1,6 +1,6 @@
 // Import Firebase modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getDatabase, ref, push, onValue, set, connectDatabaseEmulator } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+import { getDatabase, ref, push, onValue, set, onDisconnect } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -27,4 +27,4 @@ onValue(connectedRef, (snap) => {
     }
 });
 
-export { database, ref, push, onValue, set };
+export { database, ref, push, onValue, set, onDisconnect };
