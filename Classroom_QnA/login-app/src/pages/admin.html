@@ -24,7 +24,45 @@
                         <label for="question">Question:</label>
                         <textarea class="form-control" id="question" rows="3" required></textarea>
                     </div>
-                    <button id="post-button" class="btn btn-primary mb-4">Post</button>
+                    <div class="form-group">
+                        <label>Question Type:</label>
+                        <div class="custom-control custom-radio">
+                            <input type="radio" id="type-text" name="question-type" class="custom-control-input" value="text" checked>
+                            <label class="custom-control-label" for="type-text">Text Answer</label>
+                        </div>
+                        <div class="custom-control custom-radio">
+                            <input type="radio" id="type-multiple" name="question-type" class="custom-control-input" value="multiple">
+                            <label class="custom-control-label" for="type-multiple">Multiple Choice</label>
+                        </div>
+                    </div>
+                    
+                    <div id="multiple-choice-options" style="display: none;">
+                        <div class="form-group">
+                            <label>Options:</label>
+                            <div id="options-container">
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control option-input" placeholder="Option 1">
+                                    <div class="input-group-append">
+                                        <div class="input-group-text">
+                                            <input type="radio" name="correct-option" value="0" aria-label="Correct answer">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control option-input" placeholder="Option 2">
+                                    <div class="input-group-append">
+                                        <div class="input-group-text">
+                                            <input type="radio" name="correct-option" value="1" aria-label="Correct answer">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted">Select the radio button next to the correct answer</small>
+                            <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="add-option">Add Option</button>
+                        </div>
+                    </div>
+                    
+                    <button id="post-button" class="btn btn-primary mb-4">Post Question</button>
 
                     <h3>Posted Questions and Answers</h3>
                     <div id="questions-answers-container">
