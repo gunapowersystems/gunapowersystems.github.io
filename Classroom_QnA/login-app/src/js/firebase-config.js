@@ -1,6 +1,6 @@
 // Import Firebase modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+import { getDatabase, ref, push, onValue, set, connectDatabaseEmulator } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -17,4 +17,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
-export { database, ref, push, onValue };
+// Test database connection
+const connectedRef = ref(database, '.info/connected');
+onValue(connectedRef, (snap) => {
+    if (snap.val() === true) {
+        console.log('Connected to Firebase');
+    } else {
+        console.log('Not connected to Firebase');
+    }
+});
+
+export { database, ref, push, onValue, set };

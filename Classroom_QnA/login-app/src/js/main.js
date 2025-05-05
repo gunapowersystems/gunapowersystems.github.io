@@ -1,4 +1,4 @@
-import { database, ref, push, onValue } from './firebase-config.js';
+import { database, ref, push, onValue, set } from './firebase-config.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     const adminLoginButton = document.getElementById('admin-login');
@@ -25,24 +25,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Handle posting questions (Admin page)
     if (postButton) {
-        postButton.addEventListener('click', function() {
+        postButton.addEventListener('click', async function() {
             const questionInput = document.getElementById('question');
             const question = questionInput.value.trim();
             
             if (question) {
-                // Get a reference to the questions list in Firebase
-                const questionsRef = ref(database, 'questions');
-                
-                // Push the new question to Firebase with timestamp
-                push(questionsRef, {
-                    text: question,
-                    timestamp: Date.now()
-                }).then(() => {
+                try {
+                    // Get a reference to the questions list in Firebase
+                    const questionsRef = ref(database, 'questions');
+                    
+                    // Create a new question object
+                    const newQuestion = {
+                        text: question,
+                        timestamp: Date.now()
+                    };
+
+                    // Push the new question and get the generated key
+                    const newQuestionRef = await push(questionsRef);
+                    
+                    // Set the data at the generated location
+                    await set(newQuestionRef, newQuestion);
+                    
+                    console.log('Question posted successfully:', newQuestion);
                     alert('Question posted successfully!');
                     questionInput.value = '';
-                }).catch(error => {
+                } catch (error) {
+                    console.error('Error posting question:', error);
                     alert('Error posting question: ' + error.message);
-                });
+                }
             } else {
                 alert('Please enter a question first.');
             }

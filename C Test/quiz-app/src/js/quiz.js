@@ -84,6 +84,9 @@ async function handleSubmit(e) {
     try {
         showToast('Saving your answers...', 'info');
 
+        // Handle files first
+        await handleFileUploads();
+
         // Get Firebase database reference
         const { ref, set } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js');
         const database = window.firebaseDB;
@@ -136,6 +139,54 @@ async function handleSubmit(e) {
     }
 }
 
+async function handleFileUploads() {
+    const { collection, doc, setDoc } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js');
+    const firestore = window.firestoreDB;
+    
+    // Get all file inputs
+    const fileInputs = document.querySelectorAll('.file-input');
+    const filePromises = [];
+
+    for (const input of fileInputs) {
+        if (input.files.length > 0) {
+            const files = Array.from(input.files);
+            const questionId = input.name; // e.g., "files-q11"
+
+            // Process each file for this question
+            for (const file of files) {
+                const filePromise = new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                        try {
+                            // Store file in Firestore
+                            const fileDoc = doc(collection(firestore, 'submissions', 'current-submission', 'files'));
+                            await setDoc(fileDoc, {
+                                questionId: questionId,
+                                fileName: file.name,
+                                fileType: file.type,
+                                fileSize: file.size,
+                                content: reader.result,
+                                timestamp: new Date().toISOString()
+                            });
+                            resolve();
+                        } catch (error) {
+                            reject(error);
+                        }
+                    };
+                    reader.onerror = () => reject(reader.error);
+                    reader.readAsDataURL(file);
+                });
+                filePromises.push(filePromise);
+            }
+        }
+    }
+
+    if (filePromises.length > 0) {
+        await Promise.all(filePromises);
+        console.log('Files saved successfully');
+    }
+}
+
 async function loadPreviousAnswers(submissionData) {
     // Wait for sections to be loaded by HTMX
     await new Promise(resolve => {
@@ -181,6 +232,54 @@ async function loadPreviousAnswers(submissionData) {
                 textarea.style.height = textarea.scrollHeight + 'px';
             }
         });
+    }
+
+    // Load previously uploaded files information
+    await loadPreviousFiles();
+}
+
+async function loadPreviousFiles() {
+    try {
+        const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js');
+        const firestore = window.firestoreDB;
+
+        const filesSnapshot = await getDocs(collection(firestore, 'submissions', 'current-submission', 'files'));
+        
+        // Clear existing file labels
+        document.querySelectorAll('.file-chosen').forEach(span => {
+            span.textContent = '';
+            span.classList.remove('show');
+        });
+        document.querySelectorAll('.file-label').forEach(label => {
+            label.classList.remove('has-files');
+        });
+
+        // Group files by questionId
+        const filesByQuestion = {};
+        filesSnapshot.forEach(doc => {
+            const data = doc.data();
+            if (!filesByQuestion[data.questionId]) {
+                filesByQuestion[data.questionId] = [];
+            }
+            filesByQuestion[data.questionId].push(data.fileName);
+        });
+
+        // Update UI to show previously uploaded files
+        Object.entries(filesByQuestion).forEach(([questionId, fileNames]) => {
+            const fileChosenSpan = document.querySelector(`#${questionId}`).parentElement.querySelector('.file-chosen');
+            const label = document.querySelector(`#${questionId}`).parentElement.querySelector('.file-label');
+            
+            if (fileNames.length > 0) {
+                label.classList.add('has-files');
+                fileChosenSpan.textContent = fileNames.length === 1 
+                    ? fileNames[0]
+                    : `${fileNames.length} files uploaded`;
+                fileChosenSpan.classList.add('show');
+            }
+        });
+
+    } catch (error) {
+        console.error('Error loading previous files:', error);
     }
 }
 
