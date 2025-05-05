@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Page</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Questions from Admin</h1>
+        <div id="questions-container" class="mt-4">
+            <!-- Questions will be displayed here -->
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const questionsContainer = document.getElementById('questions-container');
+            
+            function displayQuestions() {
+                const questions = JSON.parse(localStorage.getItem('questions') || '[]');
+                questionsContainer.innerHTML = '';
+                
+                if (questions.length === 0) {
+                    questionsContainer.innerHTML = '<p class="alert alert-info">No questions posted yet.</p>';
+                } else {
+                    questions.forEach((question, index) => {
+                        const questionElement = document.createElement('div');
+                        questionElement.className = 'card mb-3';
+                        questionElement.innerHTML = `
+                            <div class="card-body">
+                                <h5 class="card-title">Question ${index + 1}</h5>
+                                <p class="card-text">${question}</p>
+                            </div>
+                        `;
+                        questionsContainer.appendChild(questionElement);
+                    });
+                }
+            }
+
+            // Display questions immediately
+            displayQuestions();
+
+            // Check for new questions every 5 seconds
+            setInterval(displayQuestions, 5000);
+        });
+    </script>
+</body>
+</html>
